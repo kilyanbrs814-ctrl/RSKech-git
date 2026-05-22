@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { RevealOnScroll } from "./RevealOnScroll.jsx";
 import { Tilt3D } from "./Tilt3D.jsx";
 import { NeonCard } from "./NeonCard.jsx";
+import { VillaZoomParallax } from "./VillaZoomParallax.jsx";
 
 const FLEET = [
   { model: "Clio · 208",         cat: "urbain",   price: 50,   tags: ["Citadine"],                      img: "/images/fleet/clio.jpg",            focus: "50% 60%" },
@@ -81,9 +82,9 @@ const PACKS = [
 ];
 
 const VILLAS = [
-  { name: "Villa Najma",   loc: "Palmeraie", ch: 4, capacity: 8,  price: 1800 },
-  { name: "Riad El Bahia", loc: "Médina",    ch: 3, capacity: 6,  price: 1100 },
-  { name: "Villa Yasmina", loc: "Agdal",     ch: 5, capacity: 10, price: 2400 },
+  { name: "Villa Najma",   loc: "Palmeraie", ch: 4, capacity: 8,  price: 1800, img: "/images/villa%20najma.png" },
+  { name: "Riad El Bahia", loc: "Médina",    ch: 3, capacity: 6,  price: 1100, img: "/images/riah%20el%20bahia.png" },
+  { name: "Villa Yasmina", loc: "Agdal",     ch: 5, capacity: 10, price: 2400, img: "/images/villa%20yasmina.png" },
 ];
 
 const CONTACTS = [
@@ -128,9 +129,9 @@ const UNIVERSES = [
 ];
 
 const MACHINES = [
-  { name: "Can-Am Maverick R", year: "2026", kind: "Buggy 4 places", power: "240 ch", tag: "Édition limitée" },
-  { name: "700 Raptor",        year: "2026", kind: "Quad sport",     power: "686 cc", tag: "Débridé" },
-  { name: "Yamaha YZ 125",     year: "2026", kind: "Moto cross",     power: "125 cc", tag: "Pro" },
+  { name: "Can-Am Maverick R", year: "2026", kind: "Buggy 4 places", power: "240 ch", tag: "Édition limitée", img: "/images/Can-Am%20Maverick%20R.png" },
+  { name: "700 Raptor",        year: "2026", kind: "Quad sport",     power: "686 cc", tag: "Débridé",         img: "/images/700%20raptor.png" },
+  { name: "Yamaha YZ 125",     year: "2026", kind: "Moto cross",     power: "125 cc", tag: "Pro",             img: "/images/125yz.png" },
 ];
 
 const MARQUEE_ITEMS = [
@@ -376,6 +377,8 @@ function Nav() {
 
 function Hero() {
   const videoRef = useRef(null);
+  const introVideoRef = useRef(null);
+  const [introDone, setIntroDone] = useState(false);
   const [stage, setStage] = useState(0);
 
   // Lock body scroll until intro done
@@ -398,9 +401,9 @@ function Hero() {
     }
   }, [stage]);
 
-  // Autoplay video as soon as possible
+  // Autoplay intro video as soon as possible
   useEffect(() => {
-    const video = videoRef.current;
+    const video = introVideoRef.current;
     if (!video) return;
     const start = () => {
       const p = video.play();
@@ -410,6 +413,24 @@ function Hero() {
     else video.addEventListener("canplay", start, { once: true });
     return () => video.removeEventListener("canplay", start);
   }, []);
+
+  // Once intro ends, start main hero video
+  useEffect(() => {
+    if (!introDone) return;
+    const video = videoRef.current;
+    if (!video) return;
+    const start = () => {
+      const p = video.play();
+      if (p && typeof p.then === "function") p.catch(() => {});
+    };
+    if (video.readyState >= 2) start();
+    else video.addEventListener("canplay", start, { once: true });
+    return () => video.removeEventListener("canplay", start);
+  }, [introDone]);
+
+  const handleIntroEnded = () => {
+    setIntroDone(true);
+  };
 
   // Speed up the intro until the final 20%, then finish at normal speed.
   useEffect(() => {
@@ -515,7 +536,6 @@ function Hero() {
       }}>
         <video
           ref={videoRef}
-          autoPlay
           muted
           playsInline
           preload="auto"
@@ -536,6 +556,31 @@ function Hero() {
           }}
         >
           <source src="/videos/hero-scroll.mp4" type="video/mp4" />
+        </video>
+        <video
+          ref={introVideoRef}
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+          tabIndex={-1}
+          disablePictureInPicture
+          onEnded={handleIntroEnded}
+          style={{
+            position: "absolute", inset: 0,
+            width: "100%", height: "100%",
+            objectFit: "cover",
+            objectPosition: "center center",
+            backfaceVisibility: "hidden",
+            willChange: "opacity",
+            pointerEvents: "none",
+            zIndex: 1,
+            opacity: introDone ? 0 : 1,
+            transition: "opacity 250ms ease-out",
+          }}
+        >
+          <source src="/videos/intro-hero.mp4" type="video/mp4" />
         </video>
         <div className={`hero-stage-overlay${cls(1)}`} style={{
           position: "absolute", inset: 0,
@@ -895,59 +940,40 @@ function SpecVilla({ label, v }) {
 function Villas() {
   return (
     <section id="villas" className="section section--leather">
+      <div className="wrap" style={{ marginBottom: 40 }}>
+        <span className="eyebrow">— 06 · Logements d'exception</span>
+      </div>
+
+      <VillaZoomParallax
+        imgSrc="/images/villa%20palmeraie.png"
+        alt="Villa Palmeraie"
+        sectionTitle={
+          <>
+            Une adresse,<br />
+            <span style={{ color: "var(--gold)" }}>pas un séjour.</span>
+          </>
+        }
+        sectionIntro="Trois quartiers, une exigence : conciergerie résidente, piscine, chef sur demande, transfert aéroport. Les villas peuvent être combinées à n'importe quel pack."
+        eyebrow="Villa de la nuit · Palmeraie"
+        title={<>« La piscine se rallume à 21h, <br />les palmiers, à 21h02. »</>}
+        infoLabel="Disponible"
+        infoMain="Juin → Septembre"
+        infoSub="4 ch · 8 voy. · chef · piscine privée"
+      />
+
       <div className="wrap">
-        <div className="sec-header">
-          <div className="sec-header__meta">
-            <span className="eyebrow">— 06 · Logements d'exception</span>
-            <h2 className="sec-header__title">
-              Une adresse,<br />
-              <span style={{ color: "var(--gold)" }}>pas un séjour.</span>
-            </h2>
-          </div>
-          <p className="sec-header__intro">
-            Trois quartiers, une exigence : conciergerie résidente, piscine, chef sur demande, transfert aéroport. Les villas peuvent être combinées à n'importe quel pack.
-          </p>
-        </div>
-
-        <div style={{
-          position: "relative",
-          aspectRatio: "21 / 9",
-          marginBottom: 64,
-          overflow: "hidden",
-          border: "1px solid var(--line-faint)",
-        }}>
-          <PoolScene />
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 50%, rgba(14, 11, 8, 0.85) 100%)", pointerEvents: "none" }} />
-          <div className="header-2col" style={{
-            position: "absolute", left: 32, bottom: 32, right: 32,
-            display: "grid", gridTemplateColumns: "2fr 1fr", alignItems: "end", gap: 32,
-          }}>
-            <div>
-              <div className="eyebrow" style={{ color: "var(--gold-bright)" }}>Villa de la nuit · Palmeraie</div>
-              <h3 className="display" style={{ fontSize: "clamp(36px, 5vw, 72px)", lineHeight: 1, marginTop: 12 }}>
-                « La piscine se rallume à 21h, <br />les palmiers, à 21h02. »
-              </h3>
-            </div>
-            <div style={{
-              padding: 20,
-              background: "rgba(14, 11, 8, 0.6)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid var(--line-soft)",
-            }}>
-              <div className="eyebrow-linen">Disponible</div>
-              <div className="display" style={{ fontSize: 28, marginTop: 4 }}>Juin → Septembre</div>
-              <div className="body-sm" style={{ marginTop: 12 }}>4 ch · 8 voy. · chef · piscine privée</div>
-            </div>
-          </div>
-        </div>
-
         <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
           {VILLAS.map((v, i) => (
             <RevealOnScroll key={i} delay={i * 0.1}>
             <NeonCard>
             <article className="card" style={{ padding: 0 }}>
-              <div style={{ height: 320, position: "relative" }}>
-                <VillaScene caption={`${v.name} · ${v.loc}`} />
+              <div style={{ height: 320, position: "relative", overflow: "hidden" }}>
+                <img
+                  src={v.img}
+                  alt={v.name}
+                  loading="lazy"
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                />
                 <div style={{ position: "absolute", top: 14, left: 14 }}>
                   <span className="tag">{v.loc}</span>
                 </div>
@@ -1052,7 +1078,12 @@ function Offroad() {
           overflow: "hidden",
           border: "1px solid var(--line-faint)",
         }}>
-          <DesertScene caption="Atlas · 18:42" />
+          <img
+            src="/images/desert%20atlas.png"
+            alt="Atlas"
+            loading="lazy"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          />
           <div style={{
             position: "absolute", inset: 0,
             background: "linear-gradient(90deg, rgba(20, 10, 6, 0.55) 0%, transparent 50%, rgba(20, 10, 6, 0.55) 100%)",
@@ -1074,8 +1105,13 @@ function Offroad() {
               borderColor: "rgba(200, 40, 28, 0.18)",
               display: "flex", flexDirection: "column",
             }}>
-              <div style={{ height: 200, position: "relative" }}>
-                <DesertScene caption={`${m.kind} · ${m.year}`} />
+              <div style={{ height: 200, position: "relative", overflow: "hidden" }}>
+                <img
+                  src={m.img}
+                  alt={m.name}
+                  loading="lazy"
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                />
                 <div style={{ position: "absolute", top: 14, right: 14 }}>
                   <span className="tag tag--red">{m.tag}</span>
                 </div>
