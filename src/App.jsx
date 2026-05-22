@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { RevealOnScroll } from "./RevealOnScroll.jsx";
 import { Tilt3D } from "./Tilt3D.jsx";
 import { NeonCard } from "./NeonCard.jsx";
@@ -340,11 +341,11 @@ function Nav() {
     }}>
       <div className="wrap" style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        height: scrolled ? 64 : 80, transition: "height .35s ease",
+        height: scrolled ? "clamp(54px, 7vh, 64px)" : "clamp(64px, 9vh, 80px)", transition: "height .35s ease",
       }}>
         <a href="#top" style={{ display: "flex", alignItems: "baseline", gap: 8, fontFamily: "var(--font-display)", fontStyle: "italic" }}>
-          <span style={{ fontSize: 26, color: "var(--rs-red)", letterSpacing: "-0.02em", fontWeight: 600, fontStyle: "normal", fontFamily: "var(--font-mono)" }}>RS</span>
-          <span style={{ fontSize: 22, color: "var(--fg-sand)", fontStyle: "italic" }}>kech</span>
+          <span style={{ fontSize: "clamp(20px, 2.4vw, 26px)", color: "var(--rs-red)", letterSpacing: "-0.02em", fontWeight: 600, fontStyle: "normal", fontFamily: "var(--font-mono)" }}>RS</span>
+          <span style={{ fontSize: "clamp(18px, 2vw, 22px)", color: "var(--fg-sand)", fontStyle: "italic" }}>kech</span>
           <span className="hide-sm" style={{
             marginLeft: 14, paddingLeft: 14, borderLeft: "1px solid var(--line-soft)",
             fontFamily: "var(--font-mono)", fontStyle: "normal",
@@ -352,7 +353,7 @@ function Nav() {
           }}>Marrakech · 26'</span>
         </a>
 
-        <div className="hide-sm" style={{ display: "flex", alignItems: "center", gap: 36 }}>
+        <div className="hide-sm" style={{ display: "flex", alignItems: "center", gap: "clamp(18px, 2.6vw, 36px)" }}>
           {links.map((l) => (
             <a key={l.id} href={`#${l.id}`} style={{
               fontFamily: "var(--font-mono)", fontSize: 11,
@@ -379,7 +380,12 @@ function Hero() {
   const videoRef = useRef(null);
   const introVideoRef = useRef(null);
   const [introDone, setIntroDone] = useState(false);
+  const [introFading, setIntroFading] = useState(false);
+  const [introUsingMatched, setIntroUsingMatched] = useState(false);
+  const [userTriggered, setUserTriggered] = useState(false);
   const [stage, setStage] = useState(0);
+
+  const CROSSFADE_SECONDS = 0.65;
 
   // Lock body scroll until intro done
   useEffect(() => {
@@ -414,9 +420,93 @@ function Hero() {
     return () => video.removeEventListener("canplay", start);
   }, []);
 
-  // Once intro ends, start main hero video
+  // Pre-seek main video to its first frame so it's painted before the crossfade.
+  // Also detect whether the colour-matched intro file was actually loaded.
   useEffect(() => {
-    if (!introDone) return;
+    const intro = introVideoRef.current;
+    const main = videoRef.current;
+    if (!intro || !main) return;
+
+    const seekMain = () => {
+      try {
+        if (!main.currentTime || main.currentTime < 0.01) {
+          main.currentTime = 0.01;
+        }
+      } catch (_) {}
+    };
+    if (main.readyState >= 1) seekMain();
+    else main.addEventListener("loadedmetadata", seekMain, { once: true });
+
+    const onIntroMeta = () => {
+      const src = intro.currentSrc || "";
+      if (src.includes("intro-hero-matched")) setIntroUsingMatched(true);
+    };
+    if (intro.readyState >= 1) onIntroMeta();
+    else intro.addEventListener("loadedmetadata", onIntroMeta, { once: true });
+
+    return () => {
+      main.removeEventListener("loadedmetadata", seekMain);
+      intro.removeEventListener("loadedmetadata", onIntroMeta);
+    };
+  }, []);
+
+  const handleIntroEnded = () => {
+    // Freeze on the last frame: pause exactly at the end so the browser keeps
+    // the final frame painted instead of letting the player reset.
+    const intro = introVideoRef.current;
+    if (intro) {
+      try {
+        intro.pause();
+        if (Number.isFinite(intro.duration)) {
+          intro.currentTime = Math.max(0, intro.duration - 0.04);
+        }
+      } catch (_) {}
+    }
+    setIntroDone(true);
+  };
+
+  // While paused on the last intro frame, wait for the user's first scroll
+  // gesture, then start the crossfade + main video playback.
+  useEffect(() => {
+    if (!introDone || userTriggered) return;
+
+    let touchStartY = null;
+    const trigger = () => {
+      setUserTriggered(true);
+    };
+    const onWheel = (e) => {
+      if (Math.abs(e.deltaY) > 4 || Math.abs(e.deltaX) > 4) trigger();
+    };
+    const onTouchStart = (e) => {
+      touchStartY = e.touches && e.touches[0] ? e.touches[0].clientY : null;
+    };
+    const onTouchMove = (e) => {
+      if (touchStartY == null) return trigger();
+      const y = e.touches && e.touches[0] ? e.touches[0].clientY : touchStartY;
+      if (Math.abs(y - touchStartY) > 6) trigger();
+    };
+    const onKey = (e) => {
+      const keys = ["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Space", " ", "Enter"];
+      if (keys.includes(e.key) || e.code === "Space") trigger();
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("keydown", onKey);
+
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [introDone, userTriggered]);
+
+  // First user gesture: start the crossfade and play the main hero video.
+  useEffect(() => {
+    if (!userTriggered) return;
+    setIntroFading(true);
     const video = videoRef.current;
     if (!video) return;
     const start = () => {
@@ -426,11 +516,7 @@ function Hero() {
     if (video.readyState >= 2) start();
     else video.addEventListener("canplay", start, { once: true });
     return () => video.removeEventListener("canplay", start);
-  }, [introDone]);
-
-  const handleIntroEnded = () => {
-    setIntroDone(true);
-  };
+  }, [userTriggered]);
 
   // Speed up the intro until the final 20%, then finish at normal speed.
   useEffect(() => {
@@ -555,6 +641,7 @@ function Hero() {
             pointerEvents: "none",
           }}
         >
+          <source src="/videos/hero-scroll-fixed.mp4" type="video/mp4" />
           <source src="/videos/hero-scroll.mp4" type="video/mp4" />
         </video>
         <video
@@ -572,16 +659,30 @@ function Hero() {
             width: "100%", height: "100%",
             objectFit: "cover",
             objectPosition: "center center",
+            transform: "translate3d(0, 0, 0) scale(1.01)",
+            transformOrigin: "center top",
             backfaceVisibility: "hidden",
             willChange: "opacity",
             pointerEvents: "none",
             zIndex: 1,
-            opacity: introDone ? 0 : 1,
-            transition: "opacity 250ms ease-out",
+            opacity: introFading ? 0 : 1,
+            transition: `opacity ${Math.round(CROSSFADE_SECONDS * 1000)}ms ease-out`,
+            filter: introUsingMatched ? "none" : "saturate(1.15) contrast(1.06) brightness(1.03)",
           }}
         >
+          <source src="/videos/intro-hero-matched.mp4" type="video/mp4" />
           <source src="/videos/intro-hero.mp4" type="video/mp4" />
         </video>
+        <div
+          className={`hero-pause-overlay${introDone && !userTriggered ? " is-visible" : ""}`}
+          aria-hidden={!(introDone && !userTriggered)}
+        >
+          <div className="hero-pause-top">Bienvenue</div>
+          <div className="hero-pause-bottom">
+            <span className="hero-pause-bottom__label">Scroll pour entrer</span>
+            <span className="hero-pause-bottom__chevron" aria-hidden="true" />
+          </div>
+        </div>
         <div className={`hero-stage-overlay${cls(1)}`} style={{
           position: "absolute", inset: 0,
           background: `
@@ -629,13 +730,13 @@ function Hero() {
             </span>
           </h1>
 
-          <p className={`body-lg hero-stage-desc${cls(3)}`} style={{ marginTop: 32, fontSize: 19, maxWidth: "52ch", color: "var(--fg-sand)" }}>
+          <p className={`body-lg hero-stage-desc${cls(3)}`} style={{ marginTop: "clamp(20px, 3vh, 32px)", fontSize: "clamp(15px, 1.6vw, 19px)", maxWidth: "52ch", color: "var(--fg-sand)" }}>
             Une conciergerie privée pour combiner{" "}
             <em style={{ color: "var(--gold)", fontStyle: "italic", fontFamily: "var(--font-display)" }}>voitures de prestige</em>,
             villas d'exception et excursions tout-terrain — un seul interlocuteur, du premier message à la clé.
           </p>
 
-          <div className={`hero-stage-btn${cls(4)}`} style={{ marginTop: 44, display: "flex", gap: 14, flexWrap: "wrap" }}>
+          <div className={`hero-stage-btn${cls(4)}`} style={{ marginTop: "clamp(24px, 4vh, 44px)", display: "flex", gap: 14, flexWrap: "wrap" }}>
             <a href="#fleet" className="btn btn--primary" style={{ backgroundColor: "var(--gold)", color: "#1A140B" }}>
               Voir les véhicules
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -669,8 +770,52 @@ function Marquee() {
 }
 
 function Universes() {
+  const pinRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: pinRef,
+    offset: ["start start", "end end"],
+  });
+
+  // Pinned scroll-jacked card switcher. progress 0 → pin starts, 1 → pin ends.
+  // The current card exits to the LEFT while rotating; the next card enters
+  // from the RIGHT while rotating. Reverses on scroll-up. Card 3 has no exit
+  // so the page resumes scrolling after it.
+
+  const EXIT_ROT = -22;
+  const ENTER_ROT = 22;
+
+  // Windows spread out so a fast wheel-flick can't skip past a card. Pin
+  // wrapper height in CSS is also increased to make the transitions feel slow.
+  // card1 stable: 0.00 → 0.22 | transition 1→2: 0.22 → 0.48
+  // card2 stable: 0.48 → 0.58 | transition 2→3: 0.58 → 0.84
+  // card3 stable: 0.84 → 1.00
+
+  // Card 1 — centered at pin start, exits left 0.22→0.48.
+  const o1 = useTransform(scrollYProgress, [0, 0.22, 0.48], [1, 1, 0]);
+  const x1 = useTransform(scrollYProgress, [0, 0.22, 0.48], ["0vw", "0vw", "-120vw"]);
+  const r1 = useTransform(scrollYProgress, [0, 0.22, 0.48], [0, 0, EXIT_ROT]);
+  const s1 = useTransform(scrollYProgress, [0, 0.22, 0.48], [1, 1, 0.92]);
+
+  // Card 2 — enters from right 0.22→0.48, holds 0.48→0.58, exits left 0.58→0.84.
+  const o2 = useTransform(scrollYProgress, [0.22, 0.48, 0.58, 0.84], [0, 1, 1, 0]);
+  const x2 = useTransform(scrollYProgress, [0.22, 0.48, 0.58, 0.84], ["120vw", "0vw", "0vw", "-120vw"]);
+  const r2 = useTransform(scrollYProgress, [0.22, 0.48, 0.58, 0.84], [ENTER_ROT, 0, 0, EXIT_ROT]);
+  const s2 = useTransform(scrollYProgress, [0.22, 0.48, 0.58, 0.84], [0.92, 1, 1, 0.92]);
+
+  // Card 3 — enters from right 0.58→0.84, holds until pin ends.
+  const o3 = useTransform(scrollYProgress, [0.58, 0.84, 1], [0, 1, 1]);
+  const x3 = useTransform(scrollYProgress, [0.58, 0.84, 1], ["120vw", "0vw", "0vw"]);
+  const r3 = useTransform(scrollYProgress, [0.58, 0.84, 1], [ENTER_ROT, 0, 0]);
+  const s3 = useTransform(scrollYProgress, [0.58, 0.84, 1], [0.92, 1, 1]);
+
+  const motionStyles = [
+    { opacity: o1, x: x1, rotate: r1, scale: s1 },
+    { opacity: o2, x: x2, rotate: r2, scale: s2 },
+    { opacity: o3, x: x3, rotate: r3, scale: s3 },
+  ];
+
   return (
-    <section id="universes" className="section">
+    <section id="universes" className="section universes-section">
       <div className="wrap">
         <div className="sec-header">
           <div className="sec-header__meta">
@@ -684,74 +829,89 @@ function Universes() {
             RS KECH n'est ni un loueur, ni une agence : c'est une conciergerie privée qui orchestre votre séjour à Marrakech, de la clé du véhicule à la table du soir.
           </p>
         </div>
+      </div>
 
-        <div className="grid-3" style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 22,
-          alignItems: "stretch",
-          maxWidth: 1180,
-          margin: "0 auto",
-        }}>
-          {UNIVERSES.map((it, i) => (
-            <RevealOnScroll key={i} delay={i * 0.1} direction={["left", "up", "right"][i % 3]}>
-            <Tilt3D>
-            <NeonCard>
-            <article className="card" style={{
-              padding: 20,
-              height: "100%",
-              display: "flex", flexDirection: "column",
-              minHeight: 560,
-              background: "var(--bg-leather)",
-              borderColor: "var(--line-soft)",
-            }}>
-              <div style={{
-                position: "absolute", top: -28, left: 24,
-                fontFamily: "var(--font-display)", fontStyle: "italic",
-                fontSize: 96, lineHeight: 1, color: "var(--gold)",
-                pointerEvents: "none",
-              }}>{it.num}</div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <span className="eyebrow">{it.tag}</span>
-              </div>
-
-              <div className={it.imageClassName} style={{
-                position: "relative",
-                marginTop: 22,
-                width: "100%",
-                height: 260,
-                overflow: "hidden",
-                border: "1px solid var(--line-faint)",
-                backgroundImage: `url("${it.img}")`,
-                backgroundSize: "cover",
-                backgroundPosition: it.imagePosition || "center",
+      <div className="universes-pin" ref={pinRef}>
+        <div className="universes-stage">
+          <div className="universes-stage__col universes-stage__col--card">
+          <div className="universes-cards">
+            {UNIVERSES.map((it, i) => (
+              <motion.div
+                key={i}
+                className="universes-cards__slot"
+                style={{
+                  ...motionStyles[i],
+                  willChange: "opacity, transform",
+                  transformOrigin: "center center",
+                }}
+              >
+              <Tilt3D>
+              <NeonCard>
+              <article className="card" style={{
+                padding: "clamp(22px, 2vw, 28px)",
+                height: "100%",
+                display: "flex", flexDirection: "column",
+                minHeight: "clamp(500px, 64vh, 620px)",
+                background: "var(--bg-leather)",
+                borderColor: "var(--line-soft)",
               }}>
                 <div style={{
-                  position: "absolute", left: 0, right: 0, bottom: 0, height: "40%",
-                  background: "linear-gradient(180deg, transparent, rgba(14, 11, 8, 0.55))",
+                  position: "absolute",
+                  top: "clamp(-32px, -3vh, -20px)",
+                  left: "clamp(16px, 2vw, 24px)",
+                  fontFamily: "var(--font-display)", fontStyle: "italic",
+                  fontSize: "clamp(64px, 8vw, 100px)",
+                  lineHeight: 1, color: "var(--gold)",
                   pointerEvents: "none",
-                }} />
-                <div style={{ position: "absolute", left: 14, bottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 16, height: 1, background: "var(--gold)" }} />
-                  <span className="eyebrow" style={{ color: "var(--gold-bright)" }}>{it.tag}</span>
+                  zIndex: 3,
+                }}>{it.num}</div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <span className="eyebrow">{it.tag}</span>
                 </div>
-              </div>
 
-              <h3 className="display" style={{ marginTop: 22, fontSize: 32, lineHeight: 1.05, whiteSpace: "pre-line" }}>
-                {it.title}
-              </h3>
+                <div className={it.imageClassName} style={{
+                  position: "relative",
+                  marginTop: "clamp(14px, 2vh, 22px)",
+                  width: "100%",
+                  height: "clamp(200px, 28vh, 300px)",
+                  overflow: "hidden",
+                  border: "1px solid var(--line-faint)",
+                  backgroundImage: `url("${it.img}")`,
+                  backgroundSize: "cover",
+                  backgroundPosition: it.imagePosition || "center",
+                }}>
+                  <div style={{
+                    position: "absolute", left: 0, right: 0, bottom: 0, height: "40%",
+                    background: "linear-gradient(180deg, transparent, rgba(14, 11, 8, 0.55))",
+                    pointerEvents: "none",
+                  }} />
+                  <div style={{ position: "absolute", left: 14, bottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 16, height: 1, background: "var(--gold)" }} />
+                    <span className="eyebrow" style={{ color: "var(--gold-bright)" }}>{it.tag}</span>
+                  </div>
+                </div>
 
-              <p className="body" style={{ marginTop: 14, color: "var(--fg-linen)" }}>{it.copy}</p>
+                <h3 className="display" style={{ marginTop: "clamp(14px, 2vh, 22px)", fontSize: "clamp(26px, 3.2vw, 40px)", lineHeight: 1.05, whiteSpace: "pre-line" }}>
+                  {it.title}
+                </h3>
 
-              <div style={{ marginTop: "auto", paddingTop: 20 }}>
-                <a href={it.href} className="link-arrow">{it.cta} →</a>
-              </div>
-            </article>
-            </NeonCard>
-            </Tilt3D>
-            </RevealOnScroll>
-          ))}
+                <p className="body" style={{ marginTop: 14, color: "var(--fg-linen)" }}>{it.copy}</p>
+
+                <div style={{ marginTop: "auto", paddingTop: 20 }}>
+                  <a href={it.href} className="link-arrow">{it.cta} →</a>
+                </div>
+              </article>
+              </NeonCard>
+              </Tilt3D>
+              </motion.div>
+            ))}
+          </div>
+          </div>
+
+          <div className="universes-stage__col universes-stage__col--text">
+            <div className="universes-text">texte</div>
+          </div>
         </div>
       </div>
     </section>
@@ -778,7 +938,7 @@ function VehicleCard({ v, currency, index }) {
       padding: 0, display: "flex", flexDirection: "column",
       borderColor: accent ? "var(--line-soft)" : "var(--line-faint)",
     }}>
-      <div style={{ position: "relative", height: 220, overflow: "hidden", background: "#0a0a0a" }}>
+      <div style={{ position: "relative", height: "clamp(180px, 22vh, 220px)", overflow: "hidden", background: "#0a0a0a" }}>
         <img
           src={v.img}
           alt={v.model}
@@ -811,7 +971,7 @@ function VehicleCard({ v, currency, index }) {
       </div>
 
       <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-        <h4 className="display" style={{ fontSize: 28, lineHeight: 1 }}>{v.model}</h4>
+        <h4 className="display" style={{ fontSize: "clamp(20px, 2.4vw, 28px)", lineHeight: 1 }}>{v.model}</h4>
 
         <div style={{
           display: "flex", gap: 16,
@@ -827,8 +987,8 @@ function VehicleCard({ v, currency, index }) {
         <div style={{ marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
           <div>
             <div className="eyebrow-linen" style={{ fontSize: 9 }}>À partir de</div>
-            <div className="price" style={{ fontSize: 30, marginTop: 2 }}>
-              {display}<span style={{ fontSize: 14, marginLeft: 4 }}>{symbol}/j</span>
+            <div className="price" style={{ fontSize: "clamp(22px, 2.6vw, 30px)", marginTop: 2 }}>
+              {display}<span style={{ fontSize: "clamp(12px, 1.2vw, 14px)", marginLeft: 4 }}>{symbol}/j</span>
             </div>
           </div>
           <a href="#concierge" className="link-arrow" style={{ fontSize: 10, paddingBottom: 2 }}>Réserver →</a>
@@ -862,7 +1022,7 @@ function Fleet() {
 
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          marginBottom: 36, flexWrap: "wrap", gap: 16,
+          marginBottom: "clamp(20px, 3.5vh, 36px)", flexWrap: "wrap", gap: 16,
           paddingBottom: 18, borderBottom: "1px solid var(--line-faint)",
         }}>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -911,7 +1071,7 @@ function Fleet() {
         </div>
 
         <div style={{
-          marginTop: 48, padding: 28,
+          marginTop: "clamp(28px, 5vh, 48px)", padding: "clamp(18px, 2.6vw, 28px)",
           border: "1px solid var(--line-faint)",
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, flexWrap: "wrap",
         }}>
@@ -940,7 +1100,7 @@ function SpecVilla({ label, v }) {
 function Villas() {
   return (
     <section id="villas" className="section section--leather">
-      <div className="wrap" style={{ marginBottom: 40 }}>
+      <div className="wrap" style={{ marginBottom: "clamp(24px, 4vh, 40px)" }}>
         <span className="eyebrow">— 06 · Logements d'exception</span>
       </div>
 
@@ -967,7 +1127,7 @@ function Villas() {
             <RevealOnScroll key={i} delay={i * 0.1}>
             <NeonCard>
             <article className="card" style={{ padding: 0 }}>
-              <div style={{ height: 320, position: "relative", overflow: "hidden" }}>
+              <div style={{ height: "clamp(220px, 30vh, 320px)", position: "relative", overflow: "hidden" }}>
                 <img
                   src={v.img}
                   alt={v.name}
@@ -979,7 +1139,7 @@ function Villas() {
                 </div>
               </div>
               <div style={{ padding: 24 }}>
-                <h4 className="display" style={{ fontSize: 32, lineHeight: 1 }}>{v.name}</h4>
+                <h4 className="display" style={{ fontSize: "clamp(22px, 2.8vw, 32px)", lineHeight: 1 }}>{v.name}</h4>
                 <div style={{
                   marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--line-faint)",
                   display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12,
@@ -991,8 +1151,8 @@ function Villas() {
                 <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                   <div>
                     <div className="eyebrow-linen" style={{ fontSize: 9 }}>À partir de</div>
-                    <div className="price" style={{ fontSize: 28, marginTop: 2 }}>
-                      {v.price}<span style={{ fontSize: 13, marginLeft: 4 }}>€/nuit</span>
+                    <div className="price" style={{ fontSize: "clamp(22px, 2.5vw, 28px)", marginTop: 2 }}>
+                      {v.price}<span style={{ fontSize: "clamp(11px, 1.1vw, 13px)", marginLeft: 4 }}>€/nuit</span>
                     </div>
                   </div>
                   <a href="#concierge" className="link-arrow" style={{ fontSize: 10 }}>Visiter →</a>
@@ -1024,10 +1184,9 @@ function Offroad() {
   return (
     <section id="offroad" className="section--fade-edges" style={{
       position: "relative",
-      padding: "140px 0 120px",
+      padding: "clamp(72px, 12vh, 140px) 0 clamp(64px, 10vh, 120px)",
       background: `radial-gradient(80% 60% at 100% 0%, rgba(224, 80, 32, 0.18), transparent 60%),
         linear-gradient(180deg, var(--bg-deep) 0%, #1A0E0A 14%, #160A06 60%, #110906 86%, var(--bg-deep) 100%)`,
-      overflow: "hidden",
     }}>
       <div style={{
         position: "absolute", top: 80, right: 0, width: "40%", height: 4,
@@ -1035,66 +1194,32 @@ function Offroad() {
         opacity: 0.4,
       }} />
 
-      <div className="wrap" style={{ position: "relative" }}>
-        <div className="header-2col" style={{
-          display: "grid", gridTemplateColumns: "2fr 1fr",
-          gap: 48, marginBottom: 56, alignItems: "end",
-        }}>
-          <div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <span className="eyebrow" style={{ color: "var(--rs-red)" }}>— 05 · Off-road</span>
-              <span className="tag tag--red">Modèles 2026</span>
-              <span className="tag">Accès libre · 7j/7</span>
-            </div>
-            <h2 className="display" style={{
-              marginTop: 20,
-              fontSize: "clamp(56px, 8vw, 132px)",
-              lineHeight: 0.9, letterSpacing: "-0.02em",
-            }}>
-              <span style={{ display: "block", color: "var(--fg-sand)" }}>Véhicules</span>
-              <span style={{ display: "block", color: "var(--rs-red)" }}>débridés.</span>
-              <span style={{ display: "block", color: "var(--fg-linen)", fontSize: "0.42em", fontStyle: "italic", marginTop: 16 }}>
-                Dérapage autorisé.
-              </span>
-            </h2>
-          </div>
-          <div>
-            <p className="body" style={{ color: "var(--fg-sand)", fontSize: 17, maxWidth: "32ch" }}>
-              Excursions encadrées dans l'Atlas et les pistes ocre du Sud. Briefing, équipement et radio inclus.
-            </p>
-            <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 6 }}>
-              <Stat label="Pistes"   v="Atlas · Agafay · Désert" />
-              <Stat label="Durée"    v="1h · 2h · Journée" />
-              <Stat label="Horaires" v="10:00 — 21:00" />
-              <Stat label="Base"     v="Waze : Atlas Buggy Quad" />
-            </div>
-          </div>
+      <div className="wrap" style={{ position: "relative", marginBottom: "clamp(24px, 4vh, 40px)" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <span className="eyebrow" style={{ color: "var(--rs-red)" }}>— 05 · Off-road</span>
+          <span className="tag tag--red">Modèles 2026</span>
+          <span className="tag">Accès libre · 7j/7</span>
         </div>
+      </div>
 
-        <div style={{
-          position: "relative",
-          height: 380,
-          marginBottom: 64,
-          overflow: "hidden",
-          border: "1px solid var(--line-faint)",
-        }}>
-          <img
-            src="/images/desert%20atlas.png"
-            alt="Atlas"
-            loading="lazy"
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-          />
-          <div style={{
-            position: "absolute", inset: 0,
-            background: "linear-gradient(90deg, rgba(20, 10, 6, 0.55) 0%, transparent 50%, rgba(20, 10, 6, 0.55) 100%)",
-            pointerEvents: "none",
-          }} />
-          <div style={{ position: "absolute", left: 24, bottom: 20, display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap" }}>
-            <div className="eyebrow" style={{ color: "var(--gold)" }}>Atlas · 18:42</div>
-            <div className="body-sm" style={{ color: "var(--fg-sand)" }}>« Le moment où la piste devient orange. »</div>
-          </div>
-        </div>
+      <VillaZoomParallax
+        imgSrc="/images/desert%20atlas.png"
+        alt="Atlas — pistes off-road"
+        sectionTitle={
+          <>
+            Véhicules<br />
+            <span style={{ color: "var(--rs-red)" }}>débridés.</span>
+          </>
+        }
+        sectionIntro="Excursions encadrées dans l'Atlas et les pistes ocre du Sud. Briefing, équipement et radio inclus."
+        eyebrow="Atlas · 18:42"
+        title={<>« Le moment où la piste devient orange. »</>}
+        infoLabel="Disponible"
+        infoMain="10:00 → 21:00"
+        infoSub="Atlas · Agafay · Désert · Briefing inclus"
+      />
 
+      <div className="wrap">
         <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
           {MACHINES.map((m, i) => (
             <RevealOnScroll key={i} delay={i * 0.1}>
@@ -1105,7 +1230,7 @@ function Offroad() {
               borderColor: "rgba(200, 40, 28, 0.18)",
               display: "flex", flexDirection: "column",
             }}>
-              <div style={{ height: 200, position: "relative", overflow: "hidden" }}>
+              <div style={{ height: "clamp(160px, 20vh, 200px)", position: "relative", overflow: "hidden" }}>
                 <img
                   src={m.img}
                   alt={m.name}
@@ -1119,7 +1244,7 @@ function Offroad() {
               <div style={{ padding: 22 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                   <div>
-                    <h4 className="display" style={{ fontSize: 28, lineHeight: 1 }}>{m.name}</h4>
+                    <h4 className="display" style={{ fontSize: "clamp(20px, 2.4vw, 28px)", lineHeight: 1 }}>{m.name}</h4>
                     <div className="body-sm" style={{ marginTop: 6 }}>{m.kind}</div>
                   </div>
                   <div className="eyebrow" style={{ color: "var(--rs-red)" }}>{m.year}</div>
@@ -1153,12 +1278,12 @@ function PackCard({ p, index }) {
     }}>
     <article style={{
       position: "relative",
-      padding: 32,
+      padding: "clamp(20px, 3vw, 32px)",
       background: p.featured ? "var(--bg-tobacco)" : "var(--bg-leather)",
       border: "1px solid",
       borderColor: p.featured ? "var(--gold)" : "var(--line-faint)",
       display: "flex", flexDirection: "column",
-      minHeight: 560,
+      minHeight: "clamp(440px, 56vh, 560px)",
     }}>
       <div style={{
         position: "absolute", top: -14, right: 24,
@@ -1181,7 +1306,7 @@ function PackCard({ p, index }) {
         </div>
       </div>
 
-      <h3 className="display" style={{ marginTop: 12, fontSize: 56, lineHeight: 0.95 }}>
+      <h3 className="display" style={{ marginTop: 12, fontSize: "clamp(36px, 5.5vw, 56px)", lineHeight: 0.95 }}>
         {p.name}
       </h3>
 
@@ -1210,10 +1335,10 @@ function PackCard({ p, index }) {
           <span className="eyebrow-linen" style={{ fontSize: 10 }}>À partir de</span>
         </div>
         <div className="price" style={{
-          fontSize: 56, marginTop: 4, lineHeight: 1,
+          fontSize: "clamp(36px, 5.5vw, 56px)", marginTop: 4, lineHeight: 1,
           color: p.featured ? "var(--gold-bright)" : "var(--gold)",
         }}>
-          {p.price}<span style={{ fontSize: 18, marginLeft: 6 }}>€</span>
+          {p.price}<span style={{ fontSize: "clamp(14px, 1.6vw, 18px)", marginLeft: 6 }}>€</span>
         </div>
         <div className="body-sm" style={{ marginTop: 4 }}>tout compris · livraison incluse</div>
 
@@ -1264,30 +1389,74 @@ function Packs() {
           ))}
         </div>
 
-        <div style={{ marginTop: 96 }}>
+      </div>
+      <HowItWorks />
+    </section>
+  );
+}
+
+const HOW_STEPS = [
+  { num: "01", t: "Vous nous dites", d: "Dates, voyageurs, envies. Un message WhatsApp suffit." },
+  { num: "02", t: "On propose",      d: "Trois combinaisons véhicule + logement + activité, sous 2h." },
+  { num: "03", t: "On affine",       d: "Vous validez, on ajuste, on bloque tout en interne." },
+  { num: "04", t: "On livre",        d: "Clés à l'aéroport, plein offert, briefing 10 min." },
+];
+
+function HowItWorks() {
+  const pinRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: pinRef,
+    offset: ["start start", "end end"],
+  });
+
+  // Card 1 already visible when pin engages. Cards 2/3/4 reveal one per scroll
+  // beat. Three-keyframe input arrays ([enter, settle, 1]) HOLD each card at
+  // its final state for all progress >= settle, so cards never re-fade once
+  // shown. Reverse scroll plays the same transforms backwards, removing cards
+  // one by one in reverse order — exactly as spec requires.
+  const o2 = useTransform(scrollYProgress, [0.20, 0.35, 1], [0, 1, 1]);
+  const x2 = useTransform(scrollYProgress, [0.20, 0.35, 1], [60, 0, 0]);
+  const s2 = useTransform(scrollYProgress, [0.20, 0.35, 1], [0.94, 1, 1]);
+  const r2 = useTransform(scrollYProgress, [0.20, 0.35, 1], [4, 0, 0]);
+
+  const o3 = useTransform(scrollYProgress, [0.45, 0.60, 1], [0, 1, 1]);
+  const x3 = useTransform(scrollYProgress, [0.45, 0.60, 1], [60, 0, 0]);
+  const s3 = useTransform(scrollYProgress, [0.45, 0.60, 1], [0.94, 1, 1]);
+  const r3 = useTransform(scrollYProgress, [0.45, 0.60, 1], [4, 0, 0]);
+
+  const o4 = useTransform(scrollYProgress, [0.70, 0.85, 1], [0, 1, 1]);
+  const x4 = useTransform(scrollYProgress, [0.70, 0.85, 1], [60, 0, 0]);
+  const s4 = useTransform(scrollYProgress, [0.70, 0.85, 1], [0.94, 1, 1]);
+  const r4 = useTransform(scrollYProgress, [0.70, 0.85, 1], [4, 0, 0]);
+
+  const styles = [
+    null, // card 1 stays static (always visible)
+    { opacity: o2, x: x2, scale: s2, rotate: r2 },
+    { opacity: o3, x: x3, scale: s3, rotate: r3 },
+    { opacity: o4, x: x4, scale: s4, rotate: r4 },
+  ];
+
+  return (
+    <div className="howitworks-pin" ref={pinRef}>
+      <div className="howitworks-stage">
+        <div className="wrap howitworks-stage__inner">
           <div className="eyebrow" style={{ color: "var(--fg-linen)" }}>— Comment ça marche</div>
-          <div className="grid-4" style={{
-            marginTop: 28,
-            display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0,
-            borderTop: "1px solid var(--line-faint)",
-            borderBottom: "1px solid var(--line-faint)",
-          }}>
-            {[
-              { num: "01", t: "Vous nous dites", d: "Dates, voyageurs, envies. Un message WhatsApp suffit." },
-              { num: "02", t: "On propose",      d: "Trois combinaisons véhicule + logement + activité, sous 2h." },
-              { num: "03", t: "On affine",       d: "Vous validez, on ajuste, on bloque tout en interne." },
-              { num: "04", t: "On livre",        d: "Clés à l'aéroport, plein offert, briefing 10 min." },
-            ].map((s, i) => (
-              <div key={i} style={{ padding: 28, borderLeft: i === 0 ? "none" : "1px solid var(--line-faint)" }}>
-                <div style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontSize: 56, color: "var(--gold)", lineHeight: 1 }}>{s.num}</div>
-                <div style={{ marginTop: 16, color: "var(--fg-sand)", fontSize: 17 }}>{s.t}</div>
-                <div className="body-sm" style={{ marginTop: 8 }}>{s.d}</div>
-              </div>
+          <div className="howitworks-grid">
+            {HOW_STEPS.map((s, i) => (
+              <motion.div
+                key={i}
+                className="howitworks-step"
+                style={styles[i] ? { ...styles[i], willChange: "opacity, transform", transformOrigin: "left center" } : undefined}
+              >
+                <div className="howitworks-step__num">{s.num}</div>
+                <div className="howitworks-step__title">{s.t}</div>
+                <div className="howitworks-step__desc body-sm">{s.d}</div>
+              </motion.div>
             ))}
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -1320,7 +1489,7 @@ function Concierge() {
     <section id="concierge" className="section" style={{ position: "relative" }}>
       <div className="wrap">
         <div style={{
-          padding: 64,
+          padding: "clamp(24px, 5vw, 64px)",
           background: `radial-gradient(80% 100% at 0% 0%, rgba(224,138,60,0.10), transparent 50%), var(--bg-tobacco)`,
           border: "1px solid var(--line-soft)",
           position: "relative",
@@ -1333,27 +1502,27 @@ function Concierge() {
           }}>
             <div>
               <div className="eyebrow">— 07 · Conciergerie privée</div>
-              <h2 className="display" style={{ marginTop: 16, fontSize: "clamp(48px, 6vw, 88px)", lineHeight: 0.95 }}>
+              <h2 className="display" style={{ marginTop: 16, fontSize: "clamp(34px, 5.5vw, 80px)", lineHeight: 0.95 }}>
                 Un conseiller,<br />
                 <span style={{ color: "var(--gold)" }}>pas un standard.</span>
               </h2>
             </div>
             <div style={{ textAlign: "right" }}>
               <div className="eyebrow-linen">Édition</div>
-              <div style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontSize: 48, color: "var(--fg-sand)", lineHeight: 1, marginTop: 4 }}>2026</div>
+              <div style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontSize: "clamp(30px, 4.5vw, 48px)", color: "var(--fg-sand)", lineHeight: 1, marginTop: 4 }}>2026</div>
               <div className="eyebrow-linen" style={{ marginTop: 8 }}>Marrakech · Maroc</div>
             </div>
           </div>
 
           <p style={{
-            marginTop: 32, fontSize: 19, color: "var(--fg-sand)", maxWidth: "60ch",
+            marginTop: "clamp(20px, 3vh, 32px)", fontSize: "clamp(15px, 1.7vw, 19px)", color: "var(--fg-sand)", maxWidth: "60ch",
             fontFamily: "var(--font-display)", fontStyle: "italic",
           }}>
             « Un conseiller vous accompagne du premier message à la clé du véhicule —<br />
             sept jours sur sept, en français, arabe et anglais. »
           </p>
 
-          <div style={{ marginTop: 48 }}>
+          <div style={{ marginTop: "clamp(28px, 5vh, 48px)" }}>
             {CONTACTS.map((c, i) => (
               <RevealOnScroll key={i} delay={i * 0.08} amount={0.3}>
               <a href={`tel:${c.phone.replace(/\s/g, "")}`}
@@ -1361,8 +1530,8 @@ function Concierge() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "40px 120px 1fr auto",
-                  gap: 28, alignItems: "center",
-                  padding: "28px 0",
+                  gap: "clamp(14px, 2vw, 28px)", alignItems: "center",
+                  padding: "clamp(18px, 2.6vh, 28px) 0",
                   borderTop: "1px solid var(--line-faint)",
                   transition: "background .25s ease, padding .25s ease",
                   cursor: "pointer",
@@ -1381,12 +1550,12 @@ function Concierge() {
                 <Icon name={c.icon} />
                 <span className="eyebrow concierge-role" style={{ color: "var(--rs-red)" }}>{c.role}</span>
                 <div>
-                  <div style={{ color: "var(--fg-sand)", fontSize: 18 }}>{c.title}</div>
+                  <div style={{ color: "var(--fg-sand)", fontSize: "clamp(15px, 1.6vw, 18px)" }}>{c.title}</div>
                   <div className="body-sm" style={{ marginTop: 4 }}>{c.note}</div>
                 </div>
                 <div className="concierge-phone" style={{
                   fontFamily: "var(--font-display)", fontStyle: "italic",
-                  fontSize: 28, color: "var(--gold)", whiteSpace: "nowrap",
+                  fontSize: "clamp(20px, 2.6vw, 28px)", color: "var(--gold)", whiteSpace: "nowrap",
                 }}>
                   {c.phone}
                 </div>
@@ -1397,14 +1566,14 @@ function Concierge() {
           </div>
 
           <div style={{
-            marginTop: 48,
+            marginTop: "clamp(28px, 5vh, 48px)",
             display: "flex", justifyContent: "space-between", alignItems: "center",
             gap: 24, flexWrap: "wrap",
           }}>
             <div>
               <div className="eyebrow-linen">Réponse moyenne · WhatsApp</div>
               <div style={{ marginTop: 6 }}>
-                <span className="display" style={{ fontSize: 36, color: "var(--fg-sand)" }}>‹ 8 min</span>
+                <span className="display" style={{ fontSize: "clamp(24px, 3.4vw, 36px)", color: "var(--fg-sand)" }}>‹ 8 min</span>
                 <span className="body-sm" style={{ marginLeft: 12 }}>sur les heures ouvrées</span>
               </div>
             </div>
@@ -1448,17 +1617,17 @@ function Footer() {
     <footer style={{
       background: "#08060450",
       borderTop: "1px solid var(--line-faint)",
-      padding: "72px 0 32px",
+      padding: "clamp(48px, 8vh, 72px) 0 clamp(24px, 4vh, 32px)",
     }}>
       <div className="wrap">
         <div className="grid-4" style={{
-          display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48,
-          paddingBottom: 56, borderBottom: "1px solid var(--line-faint)",
+          display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "clamp(24px, 4vw, 48px)",
+          paddingBottom: "clamp(32px, 6vh, 56px)", borderBottom: "1px solid var(--line-faint)",
         }}>
           <div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600, color: "var(--rs-red)" }}>RS</span>
-              <span className="display" style={{ fontSize: 26 }}>kech</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "clamp(22px, 2.5vw, 28px)", fontWeight: 600, color: "var(--rs-red)" }}>RS</span>
+              <span className="display" style={{ fontSize: "clamp(20px, 2.3vw, 26px)" }}>kech</span>
             </div>
             <p className="body" style={{ marginTop: 20, maxWidth: "38ch" }}>
               Conciergerie privée à Marrakech.<br />
