@@ -736,16 +736,15 @@ function Hero() {
 
         <div className="hero-content__headline">
           <h1 className={`display h1 hero-stage-title${cls(2)}`} style={{ letterSpacing: "-0.02em" }}>
-            <span style={{ display: "block" }}>
-              <span style={{ color: "var(--fg-sand)" }}>Évadez-vous </span>
-              <span style={{ color: "var(--gold)" }}>à Marrakech.</span>
-            </span>
+            <span style={{ display: "block", color: "var(--fg-sand)" }}>Évadez-vous</span>
+            <span style={{ display: "block", color: "var(--gold)" }}>à Marrakech.</span>
           </h1>
 
-          <p className={`body-lg hero-stage-desc${cls(3)}`} style={{ marginTop: "clamp(20px, 3vh, 32px)", fontSize: "clamp(15px, 1.6vw, 19px)", maxWidth: "52ch", color: "var(--fg-sand)" }}>
+          <p className={`body-lg hero-stage-desc${cls(3)}`} style={{ marginTop: "clamp(20px, 0.8vw + 12px, 32px)", fontSize: "clamp(15px, 0.4vw + 13px, 19px)", maxWidth: "52ch", color: "var(--fg-sand)" }}>
             Une conciergerie privée pour combiner{" "}
-            <em style={{ color: "var(--gold)", fontStyle: "italic", fontFamily: "var(--font-display)" }}>voitures de prestige</em>,
-            villas d'exception et excursions tout-terrain — un seul interlocuteur, du premier message à la clé.
+            <em style={{ color: "var(--gold)", fontStyle: "italic", fontFamily: "var(--font-display)" }}>voitures de prestige</em>,{" "}
+            <em style={{ color: "var(--gold)", fontStyle: "italic", fontFamily: "var(--font-display)" }}>villas d'exception</em>{" "}et{" "}
+            <em style={{ color: "var(--gold)", fontStyle: "italic", fontFamily: "var(--font-display)" }}>excursions tout-terrain</em> — un seul interlocuteur, du premier message à la clé.
           </p>
 
           <div className={`hero-stage-btn${cls(4)}`} style={{ marginTop: "clamp(24px, 4vh, 44px)", display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -841,7 +840,6 @@ function Universes() {
     <section id="universes" className="section universes-section">
       <div className="sec-header sec-header--standalone">
         <div className="sec-header__meta">
-          <span className="eyebrow">— 02 · Nos univers</span>
           <h2 className="sec-header__title">
             Trois mondes,<br />
             <span style={{ color: "var(--gold)" }}>une seule signature.</span>
@@ -869,19 +867,19 @@ function Universes() {
               <Tilt3D>
               <NeonCard>
               <article className="card universe-card" style={{
-                padding: "clamp(22px, 2vw, 28px)",
+                padding: "clamp(20px, 0.8vw + 14px, 26px)",
                 height: "100%",
                 display: "flex", flexDirection: "column",
-                minHeight: "clamp(500px, 64vh, 620px)",
+                minHeight: "clamp(440px, 0.4vw + 460px, 540px)",
                 background: "var(--bg-leather)",
                 borderColor: "var(--line-soft)",
               }}>
                 <div style={{
                   position: "absolute",
-                  top: "clamp(-58px, -5.5vh, -38px)",
-                  left: "clamp(16px, 2vw, 24px)",
+                  top: "clamp(-46px, -4vh, -32px)",
+                  left: "clamp(14px, 1.6vw, 22px)",
                   fontFamily: "var(--font-display)", fontStyle: "italic",
-                  fontSize: "clamp(64px, 8vw, 100px)",
+                  fontSize: "clamp(54px, 3vw + 32px, 86px)",
                   lineHeight: 1, color: "var(--gold)",
                   pointerEvents: "none",
                   zIndex: 3,
@@ -893,9 +891,10 @@ function Universes() {
 
                 <div className={it.imageClassName} style={{
                   position: "relative",
-                  marginTop: "clamp(14px, 2vh, 22px)",
+                  marginTop: "clamp(12px, 0.5vw + 6px, 18px)",
                   width: "100%",
-                  height: "clamp(200px, 28vh, 300px)",
+                  aspectRatio: "16 / 11",
+                  maxHeight: "clamp(170px, 12vw + 40px, 240px)",
                   overflow: "hidden",
                   border: "1px solid var(--line-faint)",
                   opacity: 1,
@@ -921,7 +920,7 @@ function Universes() {
                   </div>
                 </div>
 
-                <h3 className="display" style={{ marginTop: "clamp(14px, 2vh, 22px)", fontSize: "clamp(26px, 3.2vw, 40px)", lineHeight: 1.05, whiteSpace: "pre-line" }}>
+                <h3 className="display" style={{ marginTop: "clamp(14px, 0.6vw + 8px, 22px)", fontSize: "clamp(26px, 1.2vw + 18px, 40px)", lineHeight: 1.05, whiteSpace: "pre-line" }}>
                   {it.title}
                 </h3>
 
@@ -981,7 +980,7 @@ function VehicleCard({ v, currency, index }) {
       padding: 0, display: "flex", flexDirection: "column",
       borderColor: accent ? "var(--line-soft)" : "var(--line-faint)",
     }}>
-      <div style={{ position: "relative", height: "clamp(180px, 22vh, 220px)", overflow: "hidden", background: "#0a0a0a" }}>
+      <div style={{ position: "relative", aspectRatio: "16 / 10", overflow: "hidden", background: "#0a0a0a" }}>
         <img
           src={v.img}
           alt={v.model}
@@ -1052,7 +1051,6 @@ function Fleet() {
       <div className="wrap">
         <div className="sec-header">
           <div className="sec-header__meta">
-            <span className="eyebrow">— 03 · La flotte</span>
             <h2 className="sec-header__title">
               Vingt-deux clés.<br />
               <span style={{ color: "var(--gold)", fontStyle: "italic" }}>Une seule</span> qui vous attend.
@@ -1197,7 +1195,7 @@ function VillaCard({ v }) {
   return (
     <NeonCard>
     <article className="card" style={{ padding: 0 }}>
-      <div style={{ height: "clamp(220px, 30vh, 320px)", position: "relative", overflow: "hidden" }}>
+      <div style={{ aspectRatio: "16 / 11", position: "relative", overflow: "hidden" }}>
         <img
           src={v.img}
           alt={v.name}
@@ -1236,10 +1234,6 @@ function VillaCard({ v }) {
 function Villas() {
   return (
     <section id="villas" className="section section--leather">
-      <div className="wrap" style={{ marginBottom: "clamp(24px, 4vh, 40px)" }}>
-        <span className="eyebrow">— 06 · Logements d'exception</span>
-      </div>
-
       <VillaZoomParallax
         imgSrc="/images/villa%20palmeraie.png"
         alt="Villa Palmeraie"
@@ -1287,7 +1281,7 @@ function MachineCard({ m, index }) {
       borderColor: "rgba(200, 40, 28, 0.18)",
       display: "flex", flexDirection: "column",
     }}>
-      <div style={{ height: "clamp(160px, 20vh, 200px)", position: "relative", overflow: "hidden" }}>
+      <div style={{ aspectRatio: "16 / 10", position: "relative", overflow: "hidden" }}>
         <img
           src={m.img}
           alt={m.name}
@@ -1339,7 +1333,6 @@ function Offroad() {
 
       <div className="wrap" style={{ position: "relative", marginBottom: "clamp(24px, 4vh, 40px)" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <span className="eyebrow" style={{ color: "var(--rs-red)" }}>— 05 · Off-road</span>
           <span className="tag tag--red">Modèles 2026</span>
           <span className="tag">Accès libre · 7j/7</span>
         </div>
@@ -1379,12 +1372,12 @@ function PackCard({ p, index }) {
     }}>
     <article style={{
       position: "relative",
-      padding: "clamp(20px, 3vw, 32px)",
+      padding: "clamp(20px, 1vw + 14px, 32px)",
       background: p.featured ? "var(--bg-tobacco)" : "var(--bg-leather)",
       border: "1px solid",
       borderColor: p.featured ? "var(--gold)" : "var(--line-faint)",
       display: "flex", flexDirection: "column",
-      minHeight: "clamp(440px, 56vh, 560px)",
+      minHeight: "clamp(440px, 1vw + 460px, 560px)",
     }}>
       <div style={{
         position: "absolute", top: -14, right: 24,
@@ -1407,7 +1400,7 @@ function PackCard({ p, index }) {
         </div>
       </div>
 
-      <h3 className="display" style={{ marginTop: 12, fontSize: "clamp(36px, 5.5vw, 56px)", lineHeight: 0.95 }}>
+      <h3 className="display" style={{ marginTop: 12, fontSize: "clamp(36px, 1.6vw + 24px, 56px)", lineHeight: 0.95 }}>
         {p.name}
       </h3>
 
@@ -1436,10 +1429,10 @@ function PackCard({ p, index }) {
           <span className="eyebrow-linen" style={{ fontSize: 10 }}>À partir de</span>
         </div>
         <div className="price" style={{
-          fontSize: "clamp(36px, 5.5vw, 56px)", marginTop: 4, lineHeight: 1,
+          fontSize: "clamp(36px, 1.6vw + 24px, 56px)", marginTop: 4, lineHeight: 1,
           color: p.featured ? "var(--gold-bright)" : "var(--gold)",
         }}>
-          {p.price}<span style={{ fontSize: "clamp(14px, 1.6vw, 18px)", marginLeft: 6 }}>€</span>
+          {p.price}<span style={{ fontSize: "clamp(14px, 0.4vw + 11px, 18px)", marginLeft: 6 }}>€</span>
         </div>
         <div className="body-sm" style={{ marginTop: 4 }}>tout compris · livraison incluse</div>
 
@@ -1466,7 +1459,6 @@ function Packs() {
       <div className="wrap" style={{ position: "relative" }}>
         <div className="sec-header">
           <div className="sec-header__meta">
-            <span className="eyebrow">— 04 · Packs sur mesure</span>
             <h2 className="sec-header__title">
               Trois formules.<br />
               <span style={{ color: "var(--gold)" }}>Mille combinaisons.</span>
@@ -1631,8 +1623,7 @@ function Concierge() {
             paddingBottom: 32, borderBottom: "1px dashed var(--line-faint)",
           }}>
             <div>
-              <div className="eyebrow">— 07 · Conciergerie privée</div>
-              <h2 className="display" style={{ marginTop: 16, fontSize: "clamp(34px, 5.5vw, 80px)", lineHeight: 0.95 }}>
+              <h2 className="display" style={{ fontSize: "clamp(34px, 2.2vw + 22px, 80px)", lineHeight: 0.95 }}>
                 Un conseiller,<br />
                 <span style={{ color: "var(--gold)" }}>pas un standard.</span>
               </h2>

@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 function useViewport() {
@@ -45,10 +45,22 @@ export function VillaZoomParallax({
     offset: ["start start", "end end"],
   });
 
+  // Smooth the raw scroll progress with a spring so the reveal continues
+  // briefly after the user stops scrolling instead of freezing instantly.
+  // Tuning: low-ish stiffness + moderate damping = a short, cinematic
+  // overshoot-free settle (≈250–350ms). All derived transforms below read
+  // from this smoothed value, so the clip-path, filter and text fade-in
+  // all inherit the inertia automatically.
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 80,
+    damping: 22,
+    mass: 0.8,
+  });
+
   // Reveal phase: 0 → 0.30
-  const insetX = useTransform(scrollYProgress, [0, 0.3], [insetXStart, 0]);
-  const insetY = useTransform(scrollYProgress, [0, 0.3], [insetYStart, 0]);
-  const radiusPx = useTransform(scrollYProgress, [0, 0.3], [initialRadius, 0]);
+  const insetX = useTransform(smoothProgress, [0, 0.3], [insetXStart, 0]);
+  const insetY = useTransform(smoothProgress, [0, 0.3], [insetYStart, 0]);
+  const radiusPx = useTransform(smoothProgress, [0, 0.3], [initialRadius, 0]);
   const clipPath = useTransform(
     [insetY, insetX, radiusPx],
     ([y, x, r]) => `inset(${y}px ${x}px ${y}px ${x}px round ${r}px)`,
@@ -56,7 +68,7 @@ export function VillaZoomParallax({
 
   // Drop-shadow only during the reveal — disabled after, so it does not
   // create a permanent filter stacking context that can clobber the sibling text layer.
-  const filter = useTransform(scrollYProgress, (p) => {
+  const filter = useTransform(smoothProgress, (p) => {
     if (p >= 0.3) return "none";
     const o = 1 - p / 0.3;
     return `drop-shadow(0 30px 60px rgba(0,0,0,${0.45 * o}))`;
@@ -64,8 +76,8 @@ export function VillaZoomParallax({
 
   // Text fades in 0.42 → 0.55. THREE keyframes with explicit hold at 1
   // for progress 0.55 → 1.0 so opacity can never drop back to 0 while pinned.
-  const textOpacity = useTransform(scrollYProgress, [0.42, 0.55, 1], [0, 1, 1]);
-  const textY = useTransform(scrollYProgress, [0.42, 0.55, 1], [28, 0, 0]);
+  const textOpacity = useTransform(smoothProgress, [0.42, 0.55, 1], [0, 1, 1]);
+  const textY = useTransform(smoothProgress, [0.42, 0.55, 1], [28, 0, 0]);
 
   if (prefersReducedMotion) {
     return (
@@ -111,7 +123,11 @@ export function VillaZoomParallax({
       ref={sectionRef}
       style={{
         position: "relative",
-        height: "320vh",
+        /* 200vh container with a 100vh sticky child means the user has only
+           ~100vh of scroll inside the pin. Image reveal happens in 0→0.30,
+           text fades in 0.42→0.55, leaving ~45vh of natural "hold" before
+           the section releases — short enough to never feel stuck. */
+        height: "200vh",
         marginBottom: 64,
       }}
     >
@@ -231,7 +247,7 @@ function InsideImageOverlay({
           style={{
             fontFamily: "var(--font-display)",
             fontStyle: "italic",
-            fontSize: "clamp(40px, 6vw, 88px)",
+            fontSize: "clamp(40px, 2.4vw + 26px, 84px)",
             lineHeight: 0.95,
             letterSpacing: "-0.02em",
             color: "var(--fg-sand)",
@@ -243,7 +259,7 @@ function InsideImageOverlay({
         <p
           style={{
             color: "var(--fg-linen)",
-            fontSize: "clamp(14px, 1.05vw, 17px)",
+            fontSize: "clamp(14px, 0.3vw + 12.5px, 17px)",
             lineHeight: 1.55,
             maxWidth: "44ch",
             margin: 0,
@@ -274,7 +290,7 @@ function InsideImageOverlay({
           <h3
             className="display"
             style={{
-              fontSize: "clamp(26px, 3.4vw, 48px)",
+              fontSize: "clamp(26px, 1.4vw + 18px, 48px)",
               lineHeight: 1.08,
               marginTop: 12,
             }}

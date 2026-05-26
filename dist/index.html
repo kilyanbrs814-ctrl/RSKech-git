@@ -2,7 +2,8 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
     <meta
       name="description"
       content="RS KECH — Conciergerie privée à Marrakech. Voitures de prestige, villas d'exception et excursions tout-terrain."
@@ -15,10 +16,41 @@
       href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <script type="module" crossorigin src="/assets/index-Dj2eNI8s.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CxZdXbau.css">
+    <style>
+      /* Fallback fonts metric-adjusted to closely match the Google Fonts so
+         the layout does not shift when the real fonts swap in (FOUT).
+         Without these overrides, identical pages can render with slightly
+         different line heights / wrapping between two computers depending on
+         font load timing or font cache state. */
+      @font-face {
+        font-family: "Manrope Fallback";
+        src: local("Segoe UI"), local("Arial");
+        ascent-override: 100%;
+        descent-override: 27%;
+        line-gap-override: 0%;
+        size-adjust: 100%;
+      }
+      @font-face {
+        font-family: "Instrument Serif Fallback";
+        src: local("Georgia"), local("Times New Roman");
+        ascent-override: 92%;
+        descent-override: 24%;
+        line-gap-override: 0%;
+        size-adjust: 108%;
+      }
+      @font-face {
+        font-family: "JetBrains Mono Fallback";
+        src: local("Consolas"), local("Courier New");
+        ascent-override: 100%;
+        descent-override: 25%;
+        line-gap-override: 0%;
+        size-adjust: 96%;
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-BkPea6f4.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Bs8DiszJ.css">
   </head>
   <body data-screen-label="RS KECH Landing">
-    <div id="root"></div>
+    <div id="root"></div>
   </body>
 </html>

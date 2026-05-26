@@ -23,9 +23,9 @@
 
   --sunset:         #E08A3C;
 
-  --font-display: "Instrument Serif", "EB Garamond", Georgia, serif;
-  --font-body:    "Manrope", system-ui, -apple-system, sans-serif;
-  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Instrument Serif", "Instrument Serif Fallback", "EB Garamond", Georgia, serif;
+  --font-body:    "Manrope", "Manrope Fallback", system-ui, -apple-system, sans-serif;
+  --font-mono:    "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, monospace;
 
   --grain-opacity: 0.04;
 }
@@ -50,6 +50,10 @@ html, body {
   color: var(--fg-sand);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  /* Prevent Windows / mobile auto text-resize from breaking layout
+     between machines with different DPI scaling. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 body {
   font-size: 16px;
@@ -101,9 +105,13 @@ body::before {
   color: var(--fg-sand);
 }
 
-.h1 { font-size: clamp(54px, 9vw, 148px); }
-.h2 { font-size: clamp(42px, 6vw, 92px); }
-.h3 { font-size: clamp(28px, 3vw, 44px); }
+/* Fluid type — formula mixes a fixed base with a small vw component so that
+   identical pages render very close in size between two computers that
+   differ in DPI scaling (Windows 100% vs 125% vs 150%). Pure `9vw` was
+   producing up to 40% size deltas between PCs. */
+.h1 { font-size: clamp(54px, 3.2vw + 36px, 132px); }
+.h2 { font-size: clamp(42px, 2.4vw + 28px, 88px); }
+.h3 { font-size: clamp(28px, 1.2vw + 20px, 44px); }
 
 .body-lg { font-size: 18px; line-height: 1.55; color: var(--fg-linen); max-width: 56ch; }
 .body    { font-size: 15px; line-height: 1.6;  color: var(--fg-linen); }
@@ -111,9 +119,11 @@ body::before {
 
 .price { font-family: var(--font-display); font-style: italic; color: var(--gold); }
 
-.wrap { width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 clamp(20px, 3vw, 32px); }
-.section { padding: clamp(72px, 12vh, 140px) 0; position: relative; }
-.section--tight { padding: clamp(48px, 8vh, 80px) 0; }
+.wrap { width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 clamp(20px, 1vw + 14px, 32px); }
+/* Section padding mixes a fixed base with a small vh component so the
+   vertical rhythm stays close between a 720p laptop and a 1440p desktop. */
+.section { padding: clamp(72px, 5vh + 36px, 132px) 0; position: relative; }
+.section--tight { padding: clamp(48px, 3vh + 32px, 80px) 0; }
 .divider {
   height: 1px; width: 100%;
   background: linear-gradient(90deg, transparent, var(--line-soft) 20%, var(--line-soft) 80%, transparent);
@@ -208,11 +218,11 @@ body::before {
 .sec-header__title {
   font-family: var(--font-display);
   font-style: italic;
-  font-size: clamp(38px, 6vw, 88px);
+  font-size: clamp(38px, 2.2vw + 26px, 84px);
   line-height: 0.95;
   color: var(--fg-sand);
 }
-.sec-header__intro { color: var(--fg-linen); font-size: clamp(14px, 1.4vw, 17px); max-width: 44ch; padding-bottom: 8px; }
+.sec-header__intro { color: var(--fg-linen); font-size: clamp(14px, 0.4vw + 12.5px, 17px); max-width: 44ch; padding-bottom: 8px; }
 
 .section--leather {
   background: linear-gradient(
@@ -391,12 +401,16 @@ main > #offroad + #packs {
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 24px;
+  /* The headline block (title + description + buttons) now flows directly
+     under the "RS KECH · ÉDITION 2026" eyebrow instead of being pushed to
+     the bottom of the hero. */
+  justify-content: flex-start;
+  gap: clamp(20px, 3vh + 8px, 44px);
+  padding-top: clamp(56px, 9vh, 96px);
 }
 .hero-content__headline {
   max-width: 1080px;
-  padding-bottom: clamp(0px, 4vh, 32px);
+  padding-bottom: 0;
 }
 @media (max-width: 880px) {
   .hero-section { padding-top: 24px; padding-bottom: 32px; }
@@ -503,22 +517,40 @@ main > #offroad + #packs {
 
 .universes-pin {
   position: relative;
+  /* Lock to a fixed proportion of the viewport height so scroll-jacking
+     behaves identically on a 1080p laptop (h≈750–900) and a 1440p desktop
+     (h≈1300–1440). Pure 500vh produced very different scroll lengths. */
   min-height: 500vh;
+  min-height: 500svh;
   background: inherit;
+}
+@supports (height: 100dvh) {
+  .universes-pin { min-height: 500dvh; }
 }
 
 .universes-stage {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100svh;
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   align-items: center;
-  gap: clamp(24px, 5vw, 96px);
-  padding: 0 clamp(24px, 6vw, 96px);
+  gap: clamp(24px, 2.5vw + 12px, 80px);
+  /* Large top padding + small bottom padding pushes the centered cards
+     visibly lower in the viewport so they always clear the sticky
+     `.sec-header` ("— 02 · Nos univers") and have real breathing room
+     beneath the title. */
+  padding:
+    clamp(220px, 20vh + 64px, 320px)
+    clamp(24px, 3vw + 12px, 80px)
+    clamp(24px, 2vh + 8px, 56px);
   overflow-x: clip;
   overflow-y: visible;
   background: inherit;
+}
+@supports (height: 100dvh) {
+  .universes-stage { height: 100dvh; }
 }
 
 .universes-stage__col { min-width: 0; display: flex; align-items: center; }
@@ -530,8 +562,8 @@ main > #offroad + #packs {
   display: grid;
   place-items: center;
   width: 100%;
-  max-width: min(520px, 44vw);
-  padding-top: clamp(12px, 2vh, 24px);
+  max-width: min(460px, 40vw);
+  padding-top: 0;
 }
 
 .universes-section .sec-header { margin-bottom: clamp(16px, 3vh, 32px); }
@@ -594,13 +626,21 @@ main > #offroad + #packs {
 }
 
 @media (max-height: 820px) {
-  .universes-cards { max-width: min(440px, 42vw); padding-top: clamp(8px, 1.5vh, 20px); }
+  .universes-stage {
+    padding-top: clamp(180px, 18vh + 56px, 240px);
+    padding-bottom: clamp(20px, 2vh, 40px);
+  }
+  .universes-cards { max-width: min(400px, 38vw); padding-top: 0; }
   .universes-cards .card { min-height: 0 !important; }
   .universes-text__title { font-size: clamp(24px, 3.4vw, 56px); }
 }
 
 @media (max-height: 680px) {
-  .universes-cards { max-width: min(380px, 40vw); padding-top: 12px; }
+  .universes-stage {
+    padding-top: clamp(150px, 16vh + 44px, 200px);
+    padding-bottom: clamp(16px, 1.5vh, 28px);
+  }
+  .universes-cards { max-width: min(340px, 36vw); padding-top: 0; }
 }
 
 /* Tablet & smaller: stack card above, text below */
@@ -810,18 +850,26 @@ main > #offroad + #packs {
 .howitworks-pin {
   position: relative;
   min-height: 380vh;
-  margin-top: clamp(48px, 10vh, 96px);
+  min-height: 380svh;
+  margin-top: clamp(48px, 3vh + 32px, 96px);
+}
+@supports (height: 100dvh) {
+  .howitworks-pin { min-height: 380dvh; }
 }
 
 .howitworks-stage {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100svh;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow-x: clip;
   overflow-y: visible;
+}
+@supports (height: 100dvh) {
+  .howitworks-stage { height: 100dvh; }
 }
 
 .howitworks-stage__inner {
@@ -1031,11 +1079,33 @@ main > #offroad + #packs {
 /* Short viewports (laptop with browser chrome, tablets in landscape, etc.) —
    tighten section breathing so content never needs F11 to fit. */
 @media (max-height: 760px) {
-  .section { padding: clamp(56px, 9vh, 100px) 0; }
-  .sec-header { margin-bottom: clamp(24px, 4vh, 44px); }
-  .sec-header__title { font-size: clamp(34px, 5vw, 64px); }
-  .h1 { font-size: clamp(44px, 8vw, 96px); }
-  .h2 { font-size: clamp(34px, 5vw, 72px); }
+  .section { padding: clamp(56px, 5vh + 24px, 100px) 0; }
+  .sec-header { margin-bottom: clamp(24px, 2vh + 16px, 44px); }
+  .sec-header__title { font-size: clamp(34px, 1.8vw + 22px, 64px); }
+  .h1 { font-size: clamp(44px, 2.8vw + 28px, 96px); }
+  .h2 { font-size: clamp(34px, 2vw + 20px, 72px); }
+}
+
+/* Laptop Windows-scaled range (1280 → 1600px innerWidth, typically a
+   13"–15" screen at 125% or 150% DPI scaling). The site previously rendered
+   noticeably different here vs. a desktop 1920+ screen because all the
+   primary clamps fell into their fluid `vw` window. Lock the major
+   typography + key spacings so a desktop PC and a laptop PC see the same
+   layout proportions. */
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .h1 { font-size: clamp(72px, 4.5vw + 14px, 110px); }
+  .h2 { font-size: clamp(56px, 3.2vw + 12px, 80px); }
+  .sec-header__title { font-size: clamp(54px, 2.8vw + 14px, 76px); }
+  .universes-text__title { font-size: clamp(40px, 2vw + 14px, 60px); }
+}
+
+/* Wide-desktop range — clamps were producing oversized titles on 24"+
+   monitors at 100% scaling. Cap them so the desktop machine matches the
+   laptop machine more closely. */
+@media (min-width: 1600px) {
+  .h1 { font-size: clamp(96px, 1.6vw + 80px, 128px); }
+  .h2 { font-size: clamp(70px, 1.2vw + 56px, 88px); }
+  .sec-header__title { font-size: clamp(68px, 1vw + 56px, 84px); }
 }
 
 /* ── NeonCard: SVG stroke-dashoffset perimeter light ── */
