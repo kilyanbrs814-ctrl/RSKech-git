@@ -30,15 +30,15 @@ export function VillaZoomParallax({
   const isMobile = vw < 768;
   const prefersReducedMotion = useReducedMotion();
 
-  const baseWidthVw = isMobile ? 90 : 76;
-  const baseMaxPx = isMobile ? Infinity : 1050;
+  const baseWidthVw = isMobile ? 70 : 62;
+  const baseMaxPx = isMobile ? Infinity : 900;
   const aspect = isMobile ? 16 / 10 : 21 / 9;
   const baseW = Math.min((baseWidthVw / 100) * vw, baseMaxPx);
   const baseH = baseW / aspect;
 
   const insetXStart = Math.max(0, (vw - baseW) / 2);
   const insetYStart = Math.max(0, (vh - baseH) / 2);
-  const initialRadius = 24;
+  const initialRadius = 30;
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,

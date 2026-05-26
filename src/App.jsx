@@ -4,6 +4,63 @@ import { RevealOnScroll } from "./RevealOnScroll.jsx";
 import { Tilt3D } from "./Tilt3D.jsx";
 import { NeonCard } from "./NeonCard.jsx";
 import { VillaZoomParallax } from "./VillaZoomParallax.jsx";
+import InfiniteGallery3D from "./InfiniteGallery3D.jsx";
+
+const GALLERY_IMAGES = [
+  "/images/gallery/05c194653495e088da5e4e7cf80728de.jpg",
+  "/images/gallery/354661800f99f9fcbb65a107576c9d01.jpg",
+  "/images/gallery/49556a66b2aee76179a28353baf3bf16.jpg",
+  "/images/gallery/ba0d4eb57c62b3c50d62f1471c3e57be.jpg",
+  "/images/gallery/c18fbcc7bd34bae9baef221cd0fabcf3.jpg",
+  "/images/gallery/c6b88b02b4db86de5ba1370df8a62bdd.jpg",
+  "/images/gallery/d9daa57fc3a2e01b69d20cad8d2c2d2e.jpg",
+  "/images/gallery/ec91b8317c773db31b78e0a9d54fc293.jpg",
+  "/images/gallery/f631b4572797e135300bb9622ec82ee1.jpg",
+  "/images/gallery/f7020c3ac4429934e04c656dce7c4d25.jpg",
+  "/images/gallery/ff710d8851098409aefc1818bc9bca73.jpg",
+];
+
+const GALLERY_SCROLL_VH_PER_IMAGE = 120;
+const GALLERY_SCROLL_TRAVEL = 50;
+
+function Gallery() {
+  const galleryScrollRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: galleryScrollRef,
+    offset: ["start start", "end end"],
+  });
+  const galleryProgress = useTransform(scrollYProgress, [0, 1], [0, 1]);
+  const galleryOpacity = useTransform(scrollYProgress, [0.01, 0.06, 1], [0, 1, 1]);
+  const galleryHintOpacity = useTransform(scrollYProgress, [0, 0.05, 1], [1, 0, 0]);
+  const visibleCount = Math.min(11, Math.max(8, GALLERY_IMAGES.length));
+
+  return (
+    <section id="gallery" className="section section--gallery">
+      <div
+        className="rs-gallery-scroll"
+        ref={galleryScrollRef}
+        style={{ "--gallery-scroll-length": `${GALLERY_IMAGES.length * GALLERY_SCROLL_VH_PER_IMAGE}vh` }}
+      >
+        <div className="rs-gallery-sticky">
+          <div className="rs-gallery-frame">
+            <motion.div className="rs-gallery-scroll-hint" style={{ opacity: galleryHintOpacity }}>
+              <span>scroll</span>
+            </motion.div>
+            <motion.div className="rs-gallery-visibility" style={{ opacity: galleryOpacity }}>
+              <InfiniteGallery3D
+                images={GALLERY_IMAGES}
+                visibleCount={visibleCount}
+                className="rs-gallery-3d"
+                scrollMV={galleryProgress}
+                scrollTravel={GALLERY_SCROLL_TRAVEL}
+              />
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 const FLEET = [
   { model: "Clio · 208",         cat: "urbain",   price: 50,   tags: ["Citadine"],                      img: "/images/fleet/clio.jpg",            focus: "50% 60%" },
@@ -126,6 +183,21 @@ const UNIVERSES = [
     href: "#offroad",
     img: "/images/univers-profitez.jpg",
     tall: false,
+  },
+];
+
+const universeTexts = [
+  {
+    title: "Texte 1",
+    description: "Description provisoire pour la premiere carte.",
+  },
+  {
+    title: "Texte 2",
+    description: "Description provisoire pour la deuxieme carte.",
+  },
+  {
+    title: "Texte 3",
+    description: "Description provisoire pour la troisieme carte.",
   },
 ];
 
@@ -387,7 +459,8 @@ function Hero() {
 
   const CROSSFADE_SECONDS = 0.65;
 
-  // Lock body scroll until intro done
+  // Lock body scroll until intro done. Cleanup always restores overflow,
+  // even if the user navigates away mid-sequence.
   useEffect(() => {
     const htmlPrev = document.documentElement.style.overflow;
     const bodyPrev = document.body.style.overflow;
@@ -406,6 +479,17 @@ function Hero() {
       document.body.style.overflow = "";
     }
   }, [stage]);
+
+  // Safety fallback: if main video never fires `ended` (codec issue, network
+  // stall, etc.), force-unlock after a generous timeout once the user has
+  // triggered playback. Prevents a permanently locked page.
+  useEffect(() => {
+    if (!userTriggered) return;
+    const id = window.setTimeout(() => {
+      if (stage === 0) handleEnded();
+    }, 45000);
+    return () => clearTimeout(id);
+  }, [userTriggered, stage]);
 
   // Autoplay intro video as soon as possible
   useEffect(() => {
@@ -439,7 +523,9 @@ function Hero() {
 
     const onIntroMeta = () => {
       const src = intro.currentSrc || "";
-      if (src.includes("intro-hero-matched")) setIntroUsingMatched(true);
+      if (src.includes("intro-hero-matched") || src.includes("intro-hero-fixed")) {
+        setIntroUsingMatched(true);
+      }
     };
     if (intro.readyState >= 1) onIntroMeta();
     else intro.addEventListener("loadedmetadata", onIntroMeta, { once: true });
@@ -509,7 +595,9 @@ function Hero() {
     setIntroFading(true);
     const video = videoRef.current;
     if (!video) return;
+    const MAIN_PLAYBACK_RATE = 1.3;
     const start = () => {
+      try { video.playbackRate = MAIN_PLAYBACK_RATE; } catch (_) {}
       const p = video.play();
       if (p && typeof p.then === "function") p.catch(() => {});
     };
@@ -518,79 +606,8 @@ function Hero() {
     return () => video.removeEventListener("canplay", start);
   }, [userTriggered]);
 
-  // Speed up the intro until the final 20%, then finish at normal speed.
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const INTRO_FAST_RATE = 1.25;
-    const fastUntil = 0.8;
-    let frameId = null;
-    let isWatching = false;
-
-    const syncPlaybackRate = () => {
-      const { currentTime, duration } = video;
-      if (!Number.isFinite(duration) || duration <= 0) return;
-
-      const progress = currentTime / duration;
-      const nextRate = progress < fastUntil ? INTRO_FAST_RATE : 1;
-      if (video.playbackRate !== nextRate) {
-        video.playbackRate = nextRate;
-      }
-    };
-
-    const stopWatching = () => {
-      isWatching = false;
-      if (frameId !== null) {
-        cancelAnimationFrame(frameId);
-        frameId = null;
-      }
-    };
-
-    const watchProgress = () => {
-      syncPlaybackRate();
-
-      if (video.paused || video.ended) {
-        stopWatching();
-        return;
-      }
-
-      frameId = requestAnimationFrame(watchProgress);
-    };
-
-    const startWatching = () => {
-      syncPlaybackRate();
-      if (isWatching || video.paused || video.ended) return;
-
-      isWatching = true;
-      frameId = requestAnimationFrame(watchProgress);
-    };
-
-    const finishAtNormalSpeed = () => {
-      video.playbackRate = 1;
-      stopWatching();
-    };
-
-    video.addEventListener("loadedmetadata", syncPlaybackRate);
-    video.addEventListener("durationchange", syncPlaybackRate);
-    video.addEventListener("play", startWatching);
-    video.addEventListener("playing", startWatching);
-    video.addEventListener("pause", stopWatching);
-    video.addEventListener("ended", finishAtNormalSpeed);
-
-    syncPlaybackRate();
-    startWatching();
-
-    return () => {
-      stopWatching();
-      video.removeEventListener("loadedmetadata", syncPlaybackRate);
-      video.removeEventListener("durationchange", syncPlaybackRate);
-      video.removeEventListener("play", startWatching);
-      video.removeEventListener("playing", startWatching);
-      video.removeEventListener("pause", stopWatching);
-      video.removeEventListener("ended", finishAtNormalSpeed);
-    };
-  }, []);
+  // Both videos play at native rate. Forcing playbackRate forces extra decode
+  // work and causes the very stutter we're trying to avoid.
 
   // Chained stagger after video ends
   const handleEnded = () => {
@@ -614,14 +631,16 @@ function Hero() {
   return (
     <div id="top" className="hero-wrap">
     <section className="hero-section">
-      <div style={{
+      <div className="hero-video-stack" style={{
         position: "absolute", inset: 0, zIndex: 0, overflow: "hidden",
+        background: "#000",
+        contain: "layout paint",
         transform: "translateZ(0)",
         backfaceVisibility: "hidden",
-        willChange: "transform",
       }}>
         <video
           ref={videoRef}
+          className="hero-video hero-video--main"
           muted
           playsInline
           preload="auto"
@@ -634,18 +653,14 @@ function Hero() {
             width: "100%", height: "100%",
             objectFit: "cover",
             objectPosition: "center center",
-            transform: "translate3d(0, 0, 0) scale(1.01)",
-            transformOrigin: "center top",
-            backfaceVisibility: "hidden",
-            willChange: "transform",
             pointerEvents: "none",
           }}
         >
-          <source src="/videos/hero-scroll-fixed.mp4" type="video/mp4" />
           <source src="/videos/hero-scroll.mp4" type="video/mp4" />
         </video>
         <video
           ref={introVideoRef}
+          className={`hero-video hero-video--intro${introFading ? " is-fading" : ""}`}
           autoPlay
           muted
           playsInline
@@ -659,18 +674,15 @@ function Hero() {
             width: "100%", height: "100%",
             objectFit: "cover",
             objectPosition: "center center",
-            transform: "translate3d(0, 0, 0) scale(1.01)",
-            transformOrigin: "center top",
-            backfaceVisibility: "hidden",
-            willChange: "opacity",
             pointerEvents: "none",
             zIndex: 1,
             opacity: introFading ? 0 : 1,
             transition: `opacity ${Math.round(CROSSFADE_SECONDS * 1000)}ms ease-out`,
             filter: introUsingMatched ? "none" : "saturate(1.15) contrast(1.06) brightness(1.03)",
+            willChange: introFading ? "opacity" : "auto",
           }}
         >
-          <source src="/videos/intro-hero-matched.mp4" type="video/mp4" />
+          <source src="/videos/intro-hero-fixed.mp4" type="video/mp4" />
           <source src="/videos/intro-hero.mp4" type="video/mp4" />
         </video>
         <div
@@ -773,7 +785,7 @@ function Universes() {
   const pinRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: pinRef,
-    offset: ["start start", "end end"],
+    offset: ["start 85%", "end end"],
   });
 
   // Pinned scroll-jacked card switcher. progress 0 → pin starts, 1 → pin ends.
@@ -790,45 +802,54 @@ function Universes() {
   // card2 stable: 0.48 → 0.58 | transition 2→3: 0.58 → 0.84
   // card3 stable: 0.84 → 1.00
 
-  // Card 1 — centered at pin start, exits left 0.22→0.48.
-  const o1 = useTransform(scrollYProgress, [0, 0.22, 0.48], [1, 1, 0]);
-  const x1 = useTransform(scrollYProgress, [0, 0.22, 0.48], ["0vw", "0vw", "-120vw"]);
-  const r1 = useTransform(scrollYProgress, [0, 0.22, 0.48], [0, 0, EXIT_ROT]);
-  const s1 = useTransform(scrollYProgress, [0, 0.22, 0.48], [1, 1, 0.92]);
+  // Card 1 — soft entrance 0→0.12, holds, exits left 0.24→0.52.
+  const o1 = useTransform(scrollYProgress, [0, 0.12, 0.24, 0.52, 1], [0, 1, 1, 0, 0]);
+  const x1 = useTransform(scrollYProgress, [0, 0.24, 0.52, 1], ["0vw", "0vw", "-120vw", "-120vw"]);
+  const y1 = useTransform(scrollYProgress, [0, 0.12, 1], [35, 0, 0]);
+  const r1 = useTransform(scrollYProgress, [0, 0.24, 0.52, 1], [0, 0, EXIT_ROT, EXIT_ROT]);
+  const s1 = useTransform(scrollYProgress, [0, 0.12, 0.24, 0.52, 1], [0.96, 1, 1, 0.92, 0.92]);
 
   // Card 2 — enters from right 0.22→0.48, holds 0.48→0.58, exits left 0.58→0.84.
-  const o2 = useTransform(scrollYProgress, [0.22, 0.48, 0.58, 0.84], [0, 1, 1, 0]);
-  const x2 = useTransform(scrollYProgress, [0.22, 0.48, 0.58, 0.84], ["120vw", "0vw", "0vw", "-120vw"]);
-  const r2 = useTransform(scrollYProgress, [0.22, 0.48, 0.58, 0.84], [ENTER_ROT, 0, 0, EXIT_ROT]);
-  const s2 = useTransform(scrollYProgress, [0.22, 0.48, 0.58, 0.84], [0.92, 1, 1, 0.92]);
+  const o2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [0, 0, 1, 1, 0, 0]);
+  const x2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], ["120vw", "120vw", "0vw", "0vw", "-120vw", "-120vw"]);
+  const r2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [ENTER_ROT, ENTER_ROT, 0, 0, EXIT_ROT, EXIT_ROT]);
+  const s2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [0.92, 0.92, 1, 1, 0.92, 0.92]);
 
   // Card 3 — enters from right 0.58→0.84, holds until pin ends.
-  const o3 = useTransform(scrollYProgress, [0.58, 0.84, 1], [0, 1, 1]);
-  const x3 = useTransform(scrollYProgress, [0.58, 0.84, 1], ["120vw", "0vw", "0vw"]);
-  const r3 = useTransform(scrollYProgress, [0.58, 0.84, 1], [ENTER_ROT, 0, 0]);
-  const s3 = useTransform(scrollYProgress, [0.58, 0.84, 1], [0.92, 1, 1]);
+  const o3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], [0, 0, 1, 1]);
+  const x3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], ["120vw", "120vw", "0vw", "0vw"]);
+  const r3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], [ENTER_ROT, ENTER_ROT, 0, 0]);
+  const s3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], [0.92, 0.92, 1, 1]);
 
   const motionStyles = [
-    { opacity: o1, x: x1, rotate: r1, scale: s1 },
+    { opacity: o1, x: x1, y: y1, rotate: r1, scale: s1 },
     { opacity: o2, x: x2, rotate: r2, scale: s2 },
     { opacity: o3, x: x3, rotate: r3, scale: s3 },
   ];
 
+  const textY1 = useTransform(scrollYProgress, [0, 0.12, 0.24, 0.52, 1], [24, 0, 0, -18, -18]);
+  const textY2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [18, 18, 0, 0, -18, -18]);
+  const textY3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], [18, 18, 0, 0]);
+
+  const textMotionStyles = [
+    { opacity: o1, y: textY1 },
+    { opacity: o2, y: textY2 },
+    { opacity: o3, y: textY3 },
+  ];
+
   return (
     <section id="universes" className="section universes-section">
-      <div className="wrap">
-        <div className="sec-header">
-          <div className="sec-header__meta">
-            <span className="eyebrow">— 02 · Nos univers</span>
-            <h2 className="sec-header__title">
-              Trois mondes,<br />
-              <span style={{ color: "var(--gold)" }}>une seule signature.</span>
-            </h2>
-          </div>
-          <p className="sec-header__intro">
-            RS KECH n'est ni un loueur, ni une agence : c'est une conciergerie privée qui orchestre votre séjour à Marrakech, de la clé du véhicule à la table du soir.
-          </p>
+      <div className="sec-header sec-header--standalone">
+        <div className="sec-header__meta">
+          <span className="eyebrow">— 02 · Nos univers</span>
+          <h2 className="sec-header__title">
+            Trois mondes,<br />
+            <span style={{ color: "var(--gold)" }}>une seule signature.</span>
+          </h2>
         </div>
+        <p className="sec-header__intro">
+          RS KECH n'est ni un loueur, ni une agence : c'est une conciergerie privée qui orchestre votre séjour à Marrakech, de la clé du véhicule à la table du soir.
+        </p>
       </div>
 
       <div className="universes-pin" ref={pinRef}>
@@ -847,7 +868,7 @@ function Universes() {
               >
               <Tilt3D>
               <NeonCard>
-              <article className="card" style={{
+              <article className="card universe-card" style={{
                 padding: "clamp(22px, 2vw, 28px)",
                 height: "100%",
                 display: "flex", flexDirection: "column",
@@ -857,7 +878,7 @@ function Universes() {
               }}>
                 <div style={{
                   position: "absolute",
-                  top: "clamp(-32px, -3vh, -20px)",
+                  top: "clamp(-58px, -5.5vh, -38px)",
                   left: "clamp(16px, 2vw, 24px)",
                   fontFamily: "var(--font-display)", fontStyle: "italic",
                   fontSize: "clamp(64px, 8vw, 100px)",
@@ -877,10 +898,18 @@ function Universes() {
                   height: "clamp(200px, 28vh, 300px)",
                   overflow: "hidden",
                   border: "1px solid var(--line-faint)",
-                  backgroundImage: `url("${it.img}")`,
-                  backgroundSize: "cover",
-                  backgroundPosition: it.imagePosition || "center",
+                  opacity: 1,
                 }}>
+                  <div style={{
+                    position: "absolute",
+                    inset: 0,
+                    backgroundImage: `url("${it.img}")`,
+                    backgroundSize: "cover",
+                    backgroundPosition: it.imagePosition || "center",
+                    transform: "scale(1.06)",
+                    transformOrigin: "center",
+                    willChange: "transform",
+                  }} />
                   <div style={{
                     position: "absolute", left: 0, right: 0, bottom: 0, height: "40%",
                     background: "linear-gradient(180deg, transparent, rgba(14, 11, 8, 0.55))",
@@ -898,7 +927,7 @@ function Universes() {
 
                 <p className="body" style={{ marginTop: 14, color: "var(--fg-linen)" }}>{it.copy}</p>
 
-                <div style={{ marginTop: "auto", paddingTop: 20 }}>
+                <div style={{ marginTop: "auto", paddingTop: 20, display: "flex", justifyContent: "center" }}>
                   <a href={it.href} className="link-arrow">{it.cta} →</a>
                 </div>
               </article>
@@ -910,7 +939,21 @@ function Universes() {
           </div>
 
           <div className="universes-stage__col universes-stage__col--text">
-            <div className="universes-text">texte</div>
+            <div className="universes-text">
+              {universeTexts.map((text, i) => (
+                <motion.div
+                  key={text.title}
+                  className="universes-text__item"
+                  style={{
+                    ...textMotionStyles[i],
+                    willChange: "opacity, transform",
+                  }}
+                >
+                  <h3 className="universes-text__title">{text.title}</h3>
+                  <p className="universes-text__description">{text.description}</p>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -1097,6 +1140,99 @@ function SpecVilla({ label, v }) {
   );
 }
 
+function SequentialRevealGrid({ children }) {
+  const pinRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: pinRef,
+    offset: ["start 85%", "end end"],
+  });
+
+  const o1 = useTransform(scrollYProgress, [0, 0.12, 1], [0, 1, 1]);
+  const y1 = useTransform(scrollYProgress, [0, 0.12, 1], [40, 0, 0]);
+  const s1 = useTransform(scrollYProgress, [0, 0.12, 1], [0.94, 1, 1]);
+  const r1 = useTransform(scrollYProgress, [0, 0.12, 1], [-1.4, 0, 0]);
+
+  const o2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [0, 1, 1]);
+  const y2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [40, 0, 0]);
+  const s2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [0.94, 1, 1]);
+  const r2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [1.2, 0, 0]);
+
+  const o3 = useTransform(scrollYProgress, [0.56, 0.70, 1], [0, 1, 1]);
+  const y3 = useTransform(scrollYProgress, [0.56, 0.70, 1], [40, 0, 0]);
+  const s3 = useTransform(scrollYProgress, [0.56, 0.70, 1], [0.94, 1, 1]);
+  const r3 = useTransform(scrollYProgress, [0.56, 0.70, 1], [-1.2, 0, 0]);
+
+  const motionStyles = [
+    { opacity: o1, y: y1, scale: s1, rotate: r1 },
+    { opacity: o2, y: y2, scale: s2, rotate: r2 },
+    { opacity: o3, y: y3, scale: s3, rotate: r3 },
+  ];
+
+  return (
+    <div className="scroll-card-grid-pin" ref={pinRef}>
+      <div className="scroll-card-grid-stage">
+        <div className="wrap scroll-card-grid-wrap">
+          <div className="grid-3 scroll-card-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+            {React.Children.toArray(children).slice(0, 3).map((child, i) => (
+              <motion.div
+                key={i}
+                className="scroll-card-grid-item"
+                style={{
+                  ...motionStyles[i],
+                  willChange: "opacity, transform",
+                  transformOrigin: "center center",
+                }}
+              >
+                {child}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VillaCard({ v }) {
+  return (
+    <NeonCard>
+    <article className="card" style={{ padding: 0 }}>
+      <div style={{ height: "clamp(220px, 30vh, 320px)", position: "relative", overflow: "hidden" }}>
+        <img
+          src={v.img}
+          alt={v.name}
+          loading="lazy"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+        />
+        <div style={{ position: "absolute", top: 14, left: 14 }}>
+          <span className="tag">{v.loc}</span>
+        </div>
+      </div>
+      <div style={{ padding: 24 }}>
+        <h4 className="display" style={{ fontSize: "clamp(22px, 2.8vw, 32px)", lineHeight: 1 }}>{v.name}</h4>
+        <div style={{
+          marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--line-faint)",
+          display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12,
+        }}>
+          <SpecVilla label="Chambres" v={`${v.ch} ch`} />
+          <SpecVilla label="Voyageurs" v={`${v.capacity} pers.`} />
+          <SpecVilla label="Piscine" v="Privée" />
+        </div>
+        <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <div>
+            <div className="eyebrow-linen" style={{ fontSize: 9 }}>À partir de</div>
+            <div className="price" style={{ fontSize: "clamp(22px, 2.5vw, 28px)", marginTop: 2 }}>
+              {v.price}<span style={{ fontSize: "clamp(11px, 1.1vw, 13px)", marginLeft: 4 }}>€/nuit</span>
+            </div>
+          </div>
+          <a href="#concierge" className="link-arrow" style={{ fontSize: 10 }}>Visiter →</a>
+        </div>
+      </div>
+    </article>
+    </NeonCard>
+  );
+}
+
 function Villas() {
   return (
     <section id="villas" className="section section--leather">
@@ -1121,49 +1257,11 @@ function Villas() {
         infoSub="4 ch · 8 voy. · chef · piscine privée"
       />
 
-      <div className="wrap">
-        <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-          {VILLAS.map((v, i) => (
-            <RevealOnScroll key={i} delay={i * 0.1}>
-            <NeonCard>
-            <article className="card" style={{ padding: 0 }}>
-              <div style={{ height: "clamp(220px, 30vh, 320px)", position: "relative", overflow: "hidden" }}>
-                <img
-                  src={v.img}
-                  alt={v.name}
-                  loading="lazy"
-                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                />
-                <div style={{ position: "absolute", top: 14, left: 14 }}>
-                  <span className="tag">{v.loc}</span>
-                </div>
-              </div>
-              <div style={{ padding: 24 }}>
-                <h4 className="display" style={{ fontSize: "clamp(22px, 2.8vw, 32px)", lineHeight: 1 }}>{v.name}</h4>
-                <div style={{
-                  marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--line-faint)",
-                  display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12,
-                }}>
-                  <SpecVilla label="Chambres" v={`${v.ch} ch`} />
-                  <SpecVilla label="Voyageurs" v={`${v.capacity} pers.`} />
-                  <SpecVilla label="Piscine" v="Privée" />
-                </div>
-                <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                  <div>
-                    <div className="eyebrow-linen" style={{ fontSize: 9 }}>À partir de</div>
-                    <div className="price" style={{ fontSize: "clamp(22px, 2.5vw, 28px)", marginTop: 2 }}>
-                      {v.price}<span style={{ fontSize: "clamp(11px, 1.1vw, 13px)", marginLeft: 4 }}>€/nuit</span>
-                    </div>
-                  </div>
-                  <a href="#concierge" className="link-arrow" style={{ fontSize: 10 }}>Visiter →</a>
-                </div>
-              </div>
-            </article>
-            </NeonCard>
-            </RevealOnScroll>
-          ))}
-        </div>
-      </div>
+      <SequentialRevealGrid>
+        {VILLAS.map((v) => (
+          <VillaCard key={v.name} v={v} />
+        ))}
+      </SequentialRevealGrid>
     </section>
   );
 }
@@ -1180,6 +1278,50 @@ function Stat({ label, v }) {
   );
 }
 
+function MachineCard({ m, index }) {
+  return (
+    <NeonCard style={{ transform: index === 1 ? "rotate(0.5deg)" : index === 2 ? "rotate(-0.4deg)" : "rotate(-0.2deg)" }}>
+    <article className="card" style={{
+      padding: 0,
+      background: "rgba(0,0,0,0.35)",
+      borderColor: "rgba(200, 40, 28, 0.18)",
+      display: "flex", flexDirection: "column",
+    }}>
+      <div style={{ height: "clamp(160px, 20vh, 200px)", position: "relative", overflow: "hidden" }}>
+        <img
+          src={m.img}
+          alt={m.name}
+          loading="lazy"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+        />
+        <div style={{ position: "absolute", top: 14, right: 14 }}>
+          <span className="tag tag--red">{m.tag}</span>
+        </div>
+      </div>
+      <div style={{ padding: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div>
+            <h4 className="display" style={{ fontSize: "clamp(20px, 2.4vw, 28px)", lineHeight: 1 }}>{m.name}</h4>
+            <div className="body-sm" style={{ marginTop: 6 }}>{m.kind}</div>
+          </div>
+          <div className="eyebrow" style={{ color: "var(--rs-red)" }}>{m.year}</div>
+        </div>
+        <div style={{
+          marginTop: 20, paddingTop: 16,
+          borderTop: "1px solid rgba(200,40,28,0.18)",
+          display: "flex", justifyContent: "space-between",
+          fontFamily: "var(--font-mono)", fontSize: 11,
+          letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--fg-linen)",
+        }}>
+          <span>{m.power}</span>
+          <a href="#concierge" style={{ color: "var(--rs-red)" }}>Réserver →</a>
+        </div>
+      </div>
+    </article>
+    </NeonCard>
+  );
+}
+
 function Offroad() {
   return (
     <section id="offroad" className="section--fade-edges" style={{
@@ -1187,6 +1329,7 @@ function Offroad() {
       padding: "clamp(72px, 12vh, 140px) 0 clamp(64px, 10vh, 120px)",
       background: `radial-gradient(80% 60% at 100% 0%, rgba(224, 80, 32, 0.18), transparent 60%),
         linear-gradient(180deg, var(--bg-deep) 0%, #1A0E0A 14%, #160A06 60%, #110906 86%, var(--bg-deep) 100%)`,
+      backgroundColor: "#110906",
     }}>
       <div style={{
         position: "absolute", top: 80, right: 0, width: "40%", height: 4,
@@ -1219,53 +1362,11 @@ function Offroad() {
         infoSub="Atlas · Agafay · Désert · Briefing inclus"
       />
 
-      <div className="wrap">
-        <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-          {MACHINES.map((m, i) => (
-            <RevealOnScroll key={i} delay={i * 0.1}>
-            <NeonCard style={{ transform: i === 1 ? "rotate(0.5deg)" : i === 2 ? "rotate(-0.4deg)" : "rotate(-0.2deg)" }}>
-            <article className="card" style={{
-              padding: 0,
-              background: "rgba(0,0,0,0.35)",
-              borderColor: "rgba(200, 40, 28, 0.18)",
-              display: "flex", flexDirection: "column",
-            }}>
-              <div style={{ height: "clamp(160px, 20vh, 200px)", position: "relative", overflow: "hidden" }}>
-                <img
-                  src={m.img}
-                  alt={m.name}
-                  loading="lazy"
-                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                />
-                <div style={{ position: "absolute", top: 14, right: 14 }}>
-                  <span className="tag tag--red">{m.tag}</span>
-                </div>
-              </div>
-              <div style={{ padding: 22 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <div>
-                    <h4 className="display" style={{ fontSize: "clamp(20px, 2.4vw, 28px)", lineHeight: 1 }}>{m.name}</h4>
-                    <div className="body-sm" style={{ marginTop: 6 }}>{m.kind}</div>
-                  </div>
-                  <div className="eyebrow" style={{ color: "var(--rs-red)" }}>{m.year}</div>
-                </div>
-                <div style={{
-                  marginTop: 20, paddingTop: 16,
-                  borderTop: "1px solid rgba(200,40,28,0.18)",
-                  display: "flex", justifyContent: "space-between",
-                  fontFamily: "var(--font-mono)", fontSize: 11,
-                  letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--fg-linen)",
-                }}>
-                  <span>{m.power}</span>
-                  <a href="#concierge" style={{ color: "var(--rs-red)" }}>Réserver →</a>
-                </div>
-              </div>
-            </article>
-            </NeonCard>
-            </RevealOnScroll>
-          ))}
-        </div>
-      </div>
+      <SequentialRevealGrid>
+        {MACHINES.map((m, i) => (
+          <MachineCard key={m.name} m={m} index={i} />
+        ))}
+      </SequentialRevealGrid>
     </section>
   );
 }
@@ -1355,7 +1456,7 @@ function PackCard({ p, index }) {
 
 function Packs() {
   return (
-    <section id="packs" className="section" style={{ position: "relative" }}>
+    <section id="packs" className="section" style={{ position: "relative", backgroundColor: "var(--bg-deep)" }}>
       <div style={{
         position: "absolute", inset: 0,
         background: "radial-gradient(60% 50% at 50% 0%, rgba(224, 138, 60, 0.08), transparent 70%)",
@@ -1406,35 +1507,54 @@ function HowItWorks() {
   const pinRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: pinRef,
-    offset: ["start start", "end end"],
+    offset: ["start 85%", "end end"],
   });
 
-  // Card 1 already visible when pin engages. Cards 2/3/4 reveal one per scroll
-  // beat. Three-keyframe input arrays ([enter, settle, 1]) HOLD each card at
-  // its final state for all progress >= settle, so cards never re-fade once
-  // shown. Reverse scroll plays the same transforms backwards, removing cards
-  // one by one in reverse order — exactly as spec requires.
-  const o2 = useTransform(scrollYProgress, [0.20, 0.35, 1], [0, 1, 1]);
-  const x2 = useTransform(scrollYProgress, [0.20, 0.35, 1], [60, 0, 0]);
-  const s2 = useTransform(scrollYProgress, [0.20, 0.35, 1], [0.94, 1, 1]);
-  const r2 = useTransform(scrollYProgress, [0.20, 0.35, 1], [4, 0, 0]);
+  // Each card has only an entrance phase, then an explicit hold at the final
+  // state until the pin ends. Card 1 now reveals before cards 2/3/4 accumulate.
+  const o1 = useTransform(scrollYProgress, [0, 0.12, 1], [0, 1, 1]);
+  const x1 = useTransform(scrollYProgress, [0, 0.12, 1], [80, 0, 0]);
+  const s1 = useTransform(scrollYProgress, [0, 0.12, 1], [0.94, 1, 1]);
+  const r1 = useTransform(scrollYProgress, [0, 0.12, 1], [4, 0, 0]);
 
-  const o3 = useTransform(scrollYProgress, [0.45, 0.60, 1], [0, 1, 1]);
-  const x3 = useTransform(scrollYProgress, [0.45, 0.60, 1], [60, 0, 0]);
-  const s3 = useTransform(scrollYProgress, [0.45, 0.60, 1], [0.94, 1, 1]);
-  const r3 = useTransform(scrollYProgress, [0.45, 0.60, 1], [4, 0, 0]);
+  const o2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [0, 1, 1]);
+  const x2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [80, 0, 0]);
+  const s2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [0.94, 1, 1]);
+  const r2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [4, 0, 0]);
 
-  const o4 = useTransform(scrollYProgress, [0.70, 0.85, 1], [0, 1, 1]);
-  const x4 = useTransform(scrollYProgress, [0.70, 0.85, 1], [60, 0, 0]);
-  const s4 = useTransform(scrollYProgress, [0.70, 0.85, 1], [0.94, 1, 1]);
-  const r4 = useTransform(scrollYProgress, [0.70, 0.85, 1], [4, 0, 0]);
+  const o3 = useTransform(scrollYProgress, [0.52, 0.66, 1], [0, 1, 1]);
+  const x3 = useTransform(scrollYProgress, [0.52, 0.66, 1], [80, 0, 0]);
+  const s3 = useTransform(scrollYProgress, [0.52, 0.66, 1], [0.94, 1, 1]);
+  const r3 = useTransform(scrollYProgress, [0.52, 0.66, 1], [4, 0, 0]);
 
-  const styles = [
-    null, // card 1 stays static (always visible)
+  const o4 = useTransform(scrollYProgress, [0.68, 0.82, 1], [0, 1, 1]);
+  const x4 = useTransform(scrollYProgress, [0.68, 0.82, 1], [80, 0, 0]);
+  const s4 = useTransform(scrollYProgress, [0.68, 0.82, 1], [0.94, 1, 1]);
+  const r4 = useTransform(scrollYProgress, [0.68, 0.82, 1], [4, 0, 0]);
+
+  const cardStyles = [
+    { opacity: o1, x: x1, scale: s1, rotate: r1 },
     { opacity: o2, x: x2, scale: s2, rotate: r2 },
     { opacity: o3, x: x3, scale: s3, rotate: r3 },
     { opacity: o4, x: x4, scale: s4, rotate: r4 },
   ];
+
+  // Arrows ride the same opacity window as the card they point TO, so they
+  // appear in sync with the next card and never sit alone on screen.
+  const arrowOpacities = [o2, o3, o4];
+
+  const Arrow = () => (
+    <svg viewBox="0 0 32 32" aria-hidden="true" className="howitworks-arrow__svg">
+      <path
+        d="M5 16 H26 M19 9 L26 16 L19 23"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
 
   return (
     <div className="howitworks-pin" ref={pinRef}>
@@ -1443,15 +1563,25 @@ function HowItWorks() {
           <div className="eyebrow" style={{ color: "var(--fg-linen)" }}>— Comment ça marche</div>
           <div className="howitworks-grid">
             {HOW_STEPS.map((s, i) => (
-              <motion.div
-                key={i}
-                className="howitworks-step"
-                style={styles[i] ? { ...styles[i], willChange: "opacity, transform", transformOrigin: "left center" } : undefined}
-              >
-                <div className="howitworks-step__num">{s.num}</div>
-                <div className="howitworks-step__title">{s.t}</div>
-                <div className="howitworks-step__desc body-sm">{s.d}</div>
-              </motion.div>
+              <React.Fragment key={i}>
+                <motion.div
+                  className="howitworks-step"
+                  style={cardStyles[i] ? { ...cardStyles[i], willChange: "opacity, transform", transformOrigin: "left center" } : undefined}
+                >
+                  <div className="howitworks-step__num">{s.num}</div>
+                  <div className="howitworks-step__title">{s.t}</div>
+                  <div className="howitworks-step__desc body-sm">{s.d}</div>
+                </motion.div>
+                {i < HOW_STEPS.length - 1 && (
+                  <motion.div
+                    className="howitworks-arrow"
+                    aria-hidden="true"
+                    style={{ opacity: arrowOpacities[i], willChange: "opacity" }}
+                  >
+                    <Arrow />
+                  </motion.div>
+                )}
+              </React.Fragment>
             ))}
           </div>
         </div>
@@ -1684,6 +1814,7 @@ export default function App() {
         <Villas />
         <Offroad />
         <Packs />
+        <Gallery />
         <Concierge />
       </main>
       <Footer />
