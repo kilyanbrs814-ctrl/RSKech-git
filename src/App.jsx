@@ -63,28 +63,40 @@ function Gallery() {
 }
 
 const FLEET = [
-  { model: "Clio · 208",         cat: "urbain",   price: 50,   tags: ["Citadine"],                      img: "/images/fleet/clio.jpg",            focus: "50% 60%" },
-  { model: "Seat Ibiza",         cat: "urbain",   price: 70,   tags: ["Citadine"],                      img: "/images/fleet/ibiza.jpg",           focus: "50% 60%" },
-  { model: "T-Roc",              cat: "suv",      price: 100,  tags: ["SUV compact"],                   img: "/images/fleet/t-roc.jpg",           focus: "50% 60%" },
-  { model: "Golf 8",             cat: "urbain",   price: 150,  tags: ["Compacte"],                      img: "/images/fleet/golf-8.jpg",          focus: "50% 60%" },
-  { model: "Classe A",           cat: "prestige", price: 150,  tags: ["Premium"],                       img: "/images/fleet/classe-a.jpg",        focus: "50% 55%" },
-  { model: "Audi A3",            cat: "prestige", price: 150,  tags: ["Premium"],                       img: "/images/fleet/a3.jpg",              focus: "50% 55%" },
-  { model: "Cupra Formentor",    cat: "sport",    price: 150,  tags: ["Sport"],                         img: "/images/fleet/cupra-formentor.jpg", focus: "50% 60%" },
-  { model: "Range Évoque",       cat: "suv",      price: 150,  tags: ["SUV premium"],                   img: "/images/fleet/range-evoque.jpg",    focus: "50% 60%" },
-  { model: "Touareg 2025",       cat: "suv",      price: 160,  tags: ["SUV", "Édition 2025"],           img: "/images/fleet/tiguan.jpg",          focus: "50% 60%" },
-  { model: "Audi Q3 normal",     cat: "suv",      price: 140,  tags: ["SUV premium"],                   img: "/images/fleet/q3.jpg",              focus: "50% 60%" },
-  { model: "Audi Q3 S-Line",     cat: "suv",      price: 150,  tags: ["S-Line"],                        img: "/images/fleet/q3-sline.jpg",        focus: "50% 60%" },
-  { model: "Audi Q8 S-Line",     cat: "suv",      price: 250,  tags: ["Grand SUV", "S-Line"],           img: "/images/fleet/q8.jpg",              focus: "50% 60%" },
-  { model: "BMW Série 4",        cat: "sport",    price: 300,  tags: ["Coupé sport"],                   img: "/images/fleet/serie-4.jpg",         focus: "50% 60%" },
-  { model: "Porsche Macan",      cat: "prestige", price: 250,  tags: ["SUV sport"],                     img: "/images/fleet/porsche-macan.jpg",   focus: "50% 60%" },
-  { model: "Porsche Macan T",    cat: "prestige", price: 280,  tags: ["Édition T"],                     img: "/images/fleet/porsche-macan.jpg",   focus: "50% 60%" },
-  { model: "Porsche Cayenne",    cat: "prestige", price: 450,  tags: ["Grand SUV"],                     img: "/images/fleet/porsche-cayenne.jpg", focus: "50% 60%" },
-  { model: "Range Sport",        cat: "prestige", price: 400,  tags: ["Grand SUV"],                     img: "/images/fleet/range-sport.jpg",     focus: "50% 55%" },
-  { model: "A 35 AMG",           cat: "sport",    price: 280,  tags: ["Sport", "3 jours min."],         img: "/images/fleet/a35.jpg",             focus: "50% 60%" },
-  { model: "Audi RS3 2024",      cat: "rs",       price: 350,  tags: ["RS", "48h min."],                img: "/images/fleet/rs3.jpg",             focus: "50% 60%" },
-  { model: "Audi RS3 2025",      cat: "rs",       price: 450,  tags: ["RS", "48h min.", "Édition 2025"], img: "/images/fleet/rs3-2025.jpg",       focus: "50% 60%" },
-  { model: "C63 SE Performance", cat: "rs",       price: 500,  tags: ["Full", "Limitée"],               img: "/images/fleet/c63s.jpg",            focus: "50% 60%" },
-  { model: "Classe G",           cat: "icon",     price: 1300, tags: ["Icône", "24h possible"],         img: "/images/fleet/classe-g.jpg",        focus: "50% 60%" },
+  { model: "Clio · 208",         brand: "renault-peugeot", cat: "urbain",   price: 50,   tags: ["Citadine"],                      img: "/images/fleet/clio.jpg",            focus: "50% 60%" },
+  { model: "Seat Ibiza",         brand: "seat-cupra",      cat: "urbain",   price: 70,   tags: ["Citadine"],                      img: "/images/fleet/ibiza.jpg",           focus: "50% 60%" },
+  { model: "T-Roc",              brand: "volkswagen",      cat: "suv",      price: 100,  tags: ["SUV compact"],                   img: "/images/fleet/t-roc.jpg",           focus: "50% 60%" },
+  { model: "Golf 8",             brand: "volkswagen",      cat: "urbain",   price: 150,  tags: ["Compacte"],                      img: "/images/fleet/golf-8.jpg",          focus: "50% 60%" },
+  { model: "Classe A",           brand: "mercedes",        cat: "prestige", price: 150,  tags: ["Premium"],                       img: "/images/fleet/classe-a.jpg",        focus: "50% 55%" },
+  { model: "Audi A3",            brand: "audi",            cat: "prestige", price: 150,  tags: ["Premium"],                       img: "/images/fleet/a3.jpg",              focus: "50% 55%" },
+  { model: "Cupra Formentor",    brand: "seat-cupra",      cat: "sport",    price: 150,  tags: ["Sport"],                         img: "/images/fleet/cupra-formentor.jpg", focus: "50% 60%" },
+  { model: "Range Évoque",       brand: "range-rover",     cat: "suv",      price: 150,  tags: ["SUV premium"],                   img: "/images/fleet/range-evoque.jpg",    focus: "50% 60%" },
+  { model: "Touareg 2025",       brand: "volkswagen",      cat: "suv",      price: 160,  tags: ["SUV", "Édition 2025"],           img: "/images/fleet/tiguan.jpg",          focus: "50% 60%" },
+  { model: "Audi Q3 normal",     brand: "audi",            cat: "suv",      price: 140,  tags: ["SUV premium"],                   img: "/images/fleet/q3.jpg",              focus: "50% 60%" },
+  { model: "Audi Q3 S-Line",     brand: "audi",            cat: "suv",      price: 150,  tags: ["S-Line"],                        img: "/images/fleet/q3-sline.jpg",        focus: "50% 60%" },
+  { model: "Audi Q8 S-Line",     brand: "audi",            cat: "suv",      price: 250,  tags: ["Grand SUV", "S-Line"],           img: "/images/fleet/q8.jpg",              focus: "50% 60%" },
+  { model: "BMW Série 4",        brand: "bmw",             cat: "sport",    price: 300,  tags: ["Coupé sport"],                   img: "/images/fleet/serie-4.jpg",         focus: "50% 60%" },
+  { model: "Porsche Macan",      brand: "porsche",         cat: "prestige", price: 250,  tags: ["SUV sport"],                     img: "/images/fleet/porsche-macan.jpg",   focus: "50% 60%" },
+  { model: "Porsche Macan T",    brand: "porsche",         cat: "prestige", price: 280,  tags: ["Édition T"],                     img: "/images/fleet/porsche-macan.jpg",   focus: "50% 60%" },
+  { model: "Porsche Cayenne",    brand: "porsche",         cat: "prestige", price: 450,  tags: ["Grand SUV"],                     img: "/images/fleet/porsche-cayenne.jpg", focus: "50% 60%" },
+  { model: "Range Sport",        brand: "range-rover",     cat: "prestige", price: 400,  tags: ["Grand SUV"],                     img: "/images/fleet/range-sport.jpg",     focus: "50% 55%" },
+  { model: "A 35 AMG",           brand: "mercedes",        cat: "sport",    price: 280,  tags: ["Sport", "3 jours min."],         img: "/images/fleet/a35.jpg",             focus: "50% 60%" },
+  { model: "Audi RS3 2024",      brand: "audi",            cat: "rs",       price: 350,  tags: ["RS", "48h min."],                img: "/images/fleet/rs3.jpg",             focus: "50% 60%" },
+  { model: "Audi RS3 2025",      brand: "audi",            cat: "rs",       price: 450,  tags: ["RS", "48h min.", "Édition 2025"], img: "/images/fleet/rs3-2025.jpg",       focus: "50% 60%" },
+  { model: "C63 SE Performance", brand: "mercedes",        cat: "rs",       price: 500,  tags: ["Full", "Limitée"],               img: "/images/fleet/c63s.jpg",            focus: "50% 60%" },
+  { model: "Classe G",           brand: "mercedes",        cat: "icon",     price: 1300, tags: ["Icône", "24h possible"],         img: "/images/fleet/classe-g.jpg",        focus: "50% 60%" },
+];
+
+const BRANDS = [
+  { id: "all",              label: "Toutes" },
+  { id: "renault-peugeot",  label: "Renault / Peugeot" },
+  { id: "seat-cupra",       label: "Seat / Cupra" },
+  { id: "volkswagen",       label: "Volkswagen" },
+  { id: "mercedes",         label: "Mercedes" },
+  { id: "audi",             label: "Audi" },
+  { id: "range-rover",      label: "Range Rover" },
+  { id: "bmw",              label: "BMW" },
+  { id: "porsche",          label: "Porsche" },
 ];
 
 const FILTERS = [
@@ -734,13 +746,13 @@ function Hero() {
           <span className="eyebrow">RS KECH · ÉDITION 2026 · LOCATION DE PRESTIGE</span>
         </div>
 
-        <div className="hero-content__headline">
-          <h1 className={`display h1 hero-stage-title${cls(2)}`} style={{ letterSpacing: "-0.02em" }}>
+        <div className="hero-content__headline" style={{ marginTop: "clamp(40px, 7vh, 100px)" }}>
+          <h1 className={`display h1 hero-stage-title${cls(2)}`} style={{ letterSpacing: "-0.02em", fontSize: "clamp(68px, 4vw + 46px, 168px)" }}>
             <span style={{ display: "block", color: "var(--fg-sand)" }}>Évadez-vous</span>
             <span style={{ display: "block", color: "var(--gold)" }}>à Marrakech.</span>
           </h1>
 
-          <p className={`body-lg hero-stage-desc${cls(3)}`} style={{ marginTop: "clamp(20px, 0.8vw + 12px, 32px)", fontSize: "clamp(15px, 0.4vw + 13px, 19px)", maxWidth: "52ch", color: "var(--fg-sand)" }}>
+          <p className={`body-lg hero-stage-desc${cls(3)}`} style={{ marginTop: "clamp(22px, 1vw + 14px, 36px)", fontSize: "clamp(17px, 0.5vw + 15px, 23px)", lineHeight: 1.55, maxWidth: "56ch", color: "var(--fg-sand)" }}>
             Une conciergerie privée pour combiner{" "}
             <em style={{ color: "var(--gold)", fontStyle: "italic", fontFamily: "var(--font-display)" }}>voitures de prestige</em>,{" "}
             <em style={{ color: "var(--gold)", fontStyle: "italic", fontFamily: "var(--font-display)" }}>villas d'exception</em>{" "}et{" "}
@@ -748,13 +760,13 @@ function Hero() {
           </p>
 
           <div className={`hero-stage-btn${cls(4)}`} style={{ marginTop: "clamp(24px, 4vh, 44px)", display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <a href="#fleet" className="btn btn--primary" style={{ backgroundColor: "var(--gold)", color: "#1A140B" }}>
+            <a href="#fleet" className="btn btn--primary" style={{ backgroundColor: "var(--gold)", color: "#1A140B", padding: "clamp(13px, 1.1vh, 16px) clamp(20px, 1.6vw, 26px)", fontSize: "clamp(12px, 0.2vw + 11.5px, 13.5px)" }}>
               Voir les véhicules
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" />
               </svg>
             </a>
-            <a href="#packs" className="btn btn--ghost">Créer mon pack sur mesure</a>
+            <a href="#packs" className="btn btn--ghost" style={{ padding: "clamp(13px, 1.1vh, 16px) clamp(20px, 1.6vw, 26px)", fontSize: "clamp(12px, 0.2vw + 11.5px, 13.5px)" }}>Créer mon pack sur mesure</a>
           </div>
         </div>
 
@@ -1043,8 +1055,10 @@ function VehicleCard({ v, currency, index }) {
 
 function Fleet() {
   const [filter, setFilter] = useState("all");
+  const [brand, setBrand] = useState("all");
   const [currency, setCurrency] = useState("EUR");
-  const list = filter === "all" ? FLEET : FLEET.filter((v) => v.cat === filter);
+  const byBrand = brand === "all" ? FLEET : FLEET.filter((v) => v.brand === brand);
+  const list = filter === "all" ? byBrand : byBrand.filter((v) => v.cat === filter);
 
   return (
     <section id="fleet" className="section section--leather">
@@ -1061,24 +1075,51 @@ function Fleet() {
           </p>
         </div>
 
+        <div className="fleet-brand-bar" style={{
+          marginBottom: "clamp(18px, 3vh, 28px)",
+          paddingBottom: "clamp(16px, 2.4vh, 22px)",
+          borderBottom: "1px solid var(--line-faint)",
+        }}>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>— Choisissez une marque</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {BRANDS.map((b) => {
+              const active = b.id === brand;
+              return (
+                <button key={b.id} onClick={() => setBrand(b.id)} style={{
+                  padding: "11px 18px",
+                  fontFamily: "var(--font-mono)", fontSize: 11,
+                  letterSpacing: "0.18em", textTransform: "uppercase",
+                  color: active ? "var(--bg-deep)" : "var(--fg-sand)",
+                  background: active ? "var(--gold)" : "rgba(201, 168, 106, 0.04)",
+                  border: "1px solid",
+                  borderColor: active ? "var(--gold)" : "var(--line-soft)",
+                  transition: "all .2s ease",
+                }}>
+                  {b.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
           marginBottom: "clamp(20px, 3.5vh, 36px)", flexWrap: "wrap", gap: 16,
           paddingBottom: 18, borderBottom: "1px solid var(--line-faint)",
         }}>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {FILTERS.map((f) => {
               const active = f.id === filter;
               return (
                 <button key={f.id} onClick={() => setFilter(f.id)} style={{
-                  padding: "10px 16px",
+                  padding: "11px 18px",
                   fontFamily: "var(--font-mono)", fontSize: 11,
-                  letterSpacing: "0.16em", textTransform: "uppercase",
-                  color: active ? "var(--bg-deep)" : "var(--fg-linen)",
-                  background: active ? "var(--gold)" : "transparent",
+                  letterSpacing: "0.18em", textTransform: "uppercase",
+                  color: active ? "var(--bg-deep)" : "var(--fg-sand)",
+                  background: active ? "var(--gold)" : "rgba(201, 168, 106, 0.04)",
                   border: "1px solid",
-                  borderColor: active ? "var(--gold)" : "var(--line-faint)",
-                  transition: "all .2s",
+                  borderColor: active ? "var(--gold)" : "var(--line-soft)",
+                  transition: "all .2s ease",
                 }}>
                   {f.label}
                 </button>
@@ -1278,7 +1319,7 @@ function MachineCard({ m, index }) {
     <article className="card" style={{
       padding: 0,
       background: "rgba(0,0,0,0.35)",
-      borderColor: "rgba(200, 40, 28, 0.18)",
+      borderColor: "rgba(201, 168, 106, 0.18)",
       display: "flex", flexDirection: "column",
     }}>
       <div style={{ aspectRatio: "16 / 10", position: "relative", overflow: "hidden" }}>
@@ -1289,7 +1330,7 @@ function MachineCard({ m, index }) {
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
         />
         <div style={{ position: "absolute", top: 14, right: 14 }}>
-          <span className="tag tag--red">{m.tag}</span>
+          <span className="tag">{m.tag}</span>
         </div>
       </div>
       <div style={{ padding: 22 }}>
@@ -1298,17 +1339,17 @@ function MachineCard({ m, index }) {
             <h4 className="display" style={{ fontSize: "clamp(20px, 2.4vw, 28px)", lineHeight: 1 }}>{m.name}</h4>
             <div className="body-sm" style={{ marginTop: 6 }}>{m.kind}</div>
           </div>
-          <div className="eyebrow" style={{ color: "var(--rs-red)" }}>{m.year}</div>
+          <div className="eyebrow" style={{ color: "var(--gold)" }}>{m.year}</div>
         </div>
         <div style={{
           marginTop: 20, paddingTop: 16,
-          borderTop: "1px solid rgba(200,40,28,0.18)",
+          borderTop: "1px solid rgba(201, 168, 106, 0.18)",
           display: "flex", justifyContent: "space-between",
           fontFamily: "var(--font-mono)", fontSize: 11,
           letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--fg-linen)",
         }}>
           <span>{m.power}</span>
-          <a href="#concierge" style={{ color: "var(--rs-red)" }}>Réserver →</a>
+          <a href="#concierge" style={{ color: "var(--gold)" }}>Réserver →</a>
         </div>
       </div>
     </article>
@@ -1321,19 +1362,19 @@ function Offroad() {
     <section id="offroad" className="section--fade-edges" style={{
       position: "relative",
       padding: "clamp(72px, 12vh, 140px) 0 clamp(64px, 10vh, 120px)",
-      background: `radial-gradient(80% 60% at 100% 0%, rgba(224, 80, 32, 0.18), transparent 60%),
+      background: `radial-gradient(80% 60% at 100% 0%, rgba(201, 168, 106, 0.18), transparent 60%),
         linear-gradient(180deg, var(--bg-deep) 0%, #1A0E0A 14%, #160A06 60%, #110906 86%, var(--bg-deep) 100%)`,
       backgroundColor: "#110906",
     }}>
       <div style={{
         position: "absolute", top: 80, right: 0, width: "40%", height: 4,
-        background: "linear-gradient(90deg, transparent, var(--rs-red) 30%, var(--rs-red))",
+        background: "linear-gradient(90deg, transparent, var(--gold) 30%, var(--gold))",
         opacity: 0.4,
       }} />
 
       <div className="wrap" style={{ position: "relative", marginBottom: "clamp(24px, 4vh, 40px)" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <span className="tag tag--red">Modèles 2026</span>
+          <span className="tag">Modèles 2026</span>
           <span className="tag">Accès libre · 7j/7</span>
         </div>
       </div>
@@ -1344,7 +1385,7 @@ function Offroad() {
         sectionTitle={
           <>
             Véhicules<br />
-            <span style={{ color: "var(--rs-red)" }}>débridés.</span>
+            <span style={{ color: "var(--gold)" }}>débridés.</span>
           </>
         }
         sectionIntro="Excursions encadrées dans l'Atlas et les pistes ocre du Sud. Briefing, équipement et radio inclus."
@@ -1503,11 +1544,12 @@ function HowItWorks() {
   });
 
   // Each card has only an entrance phase, then an explicit hold at the final
-  // state until the pin ends. Card 1 now reveals before cards 2/3/4 accumulate.
+  // state until the pin ends. Card 1 mirrors the Najma reveal (vertical drift,
+  // subtle counter-rotate) while cards 2/3/4 keep the horizontal slide-in.
   const o1 = useTransform(scrollYProgress, [0, 0.12, 1], [0, 1, 1]);
-  const x1 = useTransform(scrollYProgress, [0, 0.12, 1], [80, 0, 0]);
+  const y1 = useTransform(scrollYProgress, [0, 0.12, 1], [40, 0, 0]);
   const s1 = useTransform(scrollYProgress, [0, 0.12, 1], [0.94, 1, 1]);
-  const r1 = useTransform(scrollYProgress, [0, 0.12, 1], [4, 0, 0]);
+  const r1 = useTransform(scrollYProgress, [0, 0.12, 1], [-1.4, 0, 0]);
 
   const o2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [0, 1, 1]);
   const x2 = useTransform(scrollYProgress, [0.28, 0.42, 1], [80, 0, 0]);
@@ -1525,7 +1567,7 @@ function HowItWorks() {
   const r4 = useTransform(scrollYProgress, [0.68, 0.82, 1], [4, 0, 0]);
 
   const cardStyles = [
-    { opacity: o1, x: x1, scale: s1, rotate: r1 },
+    { opacity: o1, y: y1, scale: s1, rotate: r1, transformOrigin: "center center" },
     { opacity: o2, x: x2, scale: s2, rotate: r2 },
     { opacity: o3, x: x3, scale: s3, rotate: r3 },
     { opacity: o4, x: x4, scale: s4, rotate: r4 },
@@ -1558,7 +1600,7 @@ function HowItWorks() {
               <React.Fragment key={i}>
                 <motion.div
                   className="howitworks-step"
-                  style={cardStyles[i] ? { ...cardStyles[i], willChange: "opacity, transform", transformOrigin: "left center" } : undefined}
+                  style={cardStyles[i] ? { transformOrigin: "left center", ...cardStyles[i], willChange: "opacity, transform" } : undefined}
                 >
                   <div className="howitworks-step__num">{s.num}</div>
                   <div className="howitworks-step__title">{s.t}</div>
@@ -1669,7 +1711,7 @@ function Concierge() {
                 }}
               >
                 <Icon name={c.icon} />
-                <span className="eyebrow concierge-role" style={{ color: "var(--rs-red)" }}>{c.role}</span>
+                <span className="eyebrow concierge-role" style={{ color: "var(--gold)" }}>{c.role}</span>
                 <div>
                   <div style={{ color: "var(--fg-sand)", fontSize: "clamp(15px, 1.6vw, 18px)" }}>{c.title}</div>
                   <div className="body-sm" style={{ marginTop: 4 }}>{c.note}</div>
@@ -1699,7 +1741,7 @@ function Concierge() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <a href="#" className="btn btn--primary">
+              <a href="#" className="btn btn--gold">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17.5 14c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.4-2.3-1.4-.8-.7-1.4-1.7-1.6-1.9-.2-.3 0-.4.1-.5.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.1-.7-1.6-.9-2.2-.2-.5-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.3 5.1 4.6.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.4.3-.7.3-1.2.2-1.4 0-.2-.3-.2-.6-.4zM12 2C6.5 2 2 6.5 2 12c0 1.7.5 3.4 1.3 4.9L2 22l5.3-1.3c1.4.8 3 1.2 4.7 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z" />
                 </svg>
