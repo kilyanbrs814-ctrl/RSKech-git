@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { animate, motion, useMotionValue, useScroll, useTransform } from "framer-motion";
 import { RevealOnScroll } from "./RevealOnScroll.jsx";
 import { Tilt3D } from "./Tilt3D.jsx";
 import { NeonCard } from "./NeonCard.jsx";
@@ -20,8 +20,8 @@ const GALLERY_IMAGES = [
   "/images/gallery/ff710d8851098409aefc1818bc9bca73.jpg",
 ];
 
-const GALLERY_SCROLL_VH_PER_IMAGE = 48;
-const GALLERY_SCROLL_TRAVEL = 46;
+const GALLERY_SCROLL_VH_PER_IMAGE = 50;
+const GALLERY_SCROLL_TRAVEL = 50;
 
 function Gallery() {
   const galleryScrollRef = useRef(null);
@@ -868,43 +868,113 @@ function Marquee() {
 
 function Universes() {
   const pinRef = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: pinRef,
-    offset: ["start 85%", "end end"],
-  });
+  const activeCardRef = useRef(0);
+  const wheelLockRef = useRef(false);
+  const unlockTimerRef = useRef(null);
+  const progressAnimationRef = useRef(null);
+  const cardProgress = useMotionValue(0.24);
 
-  // Pinned scroll-jacked card switcher. progress 0 → pin starts, 1 → pin ends.
-  // The current card exits to the LEFT while rotating; the next card enters
-  // from the RIGHT while rotating. Reverses on scroll-up. Card 3 has no exit
-  // so the page resumes scrolling after it.
+  // Pinned card switcher: wheel delta only chooses direction. A temporary
+  // lock ignores extra wheel events until the current transition finishes.
 
   const EXIT_ROT = -22;
   const ENTER_ROT = 22;
+  const CARD_PROGRESS_STEPS = [0.24, 0.52, 0.86];
+  const CARD_LOCK_MS = 760;
 
-  // Windows spread out so a fast wheel-flick can't skip past a card. Pin
-  // wrapper height in CSS is also increased to make the transitions feel slow.
-  // card1 stable: 0.00 → 0.22 | transition 1→2: 0.22 → 0.48
-  // card2 stable: 0.48 → 0.58 | transition 2→3: 0.58 → 0.84
-  // card3 stable: 0.84 → 1.00
+  useEffect(() => {
+    const pin = pinRef.current;
+    if (!pin) return undefined;
+
+    const releaseLock = () => {
+      wheelLockRef.current = false;
+      if (unlockTimerRef.current) {
+        window.clearTimeout(unlockTimerRef.current);
+        unlockTimerRef.current = null;
+      }
+    };
+
+    const getCardScrollY = (index) => {
+      const rect = pin.getBoundingClientRect();
+      const start = window.scrollY + rect.top;
+      const end = start + pin.offsetHeight - window.innerHeight;
+      const travel = Math.max(1, end - start);
+      const nearEndGap = Math.min(48, window.innerHeight * 0.08);
+      const targets = [
+        start + 1,
+        start + travel * 0.5,
+        Math.max(start + 1, end - nearEndGap),
+      ];
+
+      return Math.max(0, targets[index] ?? targets[0]);
+    };
+
+    const goToCard = (nextIndex) => {
+      wheelLockRef.current = true;
+      activeCardRef.current = nextIndex;
+      window.scrollTo(0, getCardScrollY(nextIndex));
+
+      if (progressAnimationRef.current) progressAnimationRef.current.stop();
+      progressAnimationRef.current = animate(cardProgress, CARD_PROGRESS_STEPS[nextIndex], {
+        duration: 0.62,
+        ease: [0.22, 1, 0.36, 1],
+        onComplete: releaseLock,
+      });
+
+      if (unlockTimerRef.current) window.clearTimeout(unlockTimerRef.current);
+      unlockTimerRef.current = window.setTimeout(releaseLock, CARD_LOCK_MS);
+    };
+
+    const onWheel = (event) => {
+      if (Math.abs(event.deltaY) < 1) return;
+
+      const rect = pin.getBoundingClientRect();
+      const isPinned = rect.top <= 1 && rect.bottom >= window.innerHeight - 1;
+      if (!isPinned) return;
+
+      if (wheelLockRef.current) {
+        if (event.cancelable) event.preventDefault();
+        return;
+      }
+
+      const direction = event.deltaY > 0 ? 1 : -1;
+      const currentIndex = activeCardRef.current;
+      const lastIndex = CARD_PROGRESS_STEPS.length - 1;
+      const nextIndex = Math.max(0, Math.min(lastIndex, currentIndex + direction));
+
+      if (nextIndex === currentIndex) return;
+
+      if (event.cancelable) event.preventDefault();
+      goToCard(nextIndex);
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      if (unlockTimerRef.current) window.clearTimeout(unlockTimerRef.current);
+      if (progressAnimationRef.current) progressAnimationRef.current.stop();
+    };
+  }, [cardProgress]);
 
   // Card 1 — soft entrance 0→0.12, holds, exits left 0.24→0.52.
-  const o1 = useTransform(scrollYProgress, [0, 0.12, 0.24, 0.52, 1], [0, 1, 1, 0, 0]);
-  const x1 = useTransform(scrollYProgress, [0, 0.24, 0.52, 1], ["0vw", "0vw", "-120vw", "-120vw"]);
-  const y1 = useTransform(scrollYProgress, [0, 0.12, 1], [35, 0, 0]);
-  const r1 = useTransform(scrollYProgress, [0, 0.24, 0.52, 1], [0, 0, EXIT_ROT, EXIT_ROT]);
-  const s1 = useTransform(scrollYProgress, [0, 0.12, 0.24, 0.52, 1], [0.96, 1, 1, 0.92, 0.92]);
+  const o1 = useTransform(cardProgress, [0, 0.12, 0.24, 0.52, 1], [0, 1, 1, 0, 0]);
+  const x1 = useTransform(cardProgress, [0, 0.24, 0.52, 1], ["0vw", "0vw", "-120vw", "-120vw"]);
+  const y1 = useTransform(cardProgress, [0, 0.12, 1], [35, 0, 0]);
+  const r1 = useTransform(cardProgress, [0, 0.24, 0.52, 1], [0, 0, EXIT_ROT, EXIT_ROT]);
+  const s1 = useTransform(cardProgress, [0, 0.12, 0.24, 0.52, 1], [0.96, 1, 1, 0.92, 0.92]);
 
   // Card 2 — enters from right 0.22→0.48, holds 0.48→0.58, exits left 0.58→0.84.
-  const o2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [0, 0, 1, 1, 0, 0]);
-  const x2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], ["120vw", "120vw", "0vw", "0vw", "-120vw", "-120vw"]);
-  const r2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [ENTER_ROT, ENTER_ROT, 0, 0, EXIT_ROT, EXIT_ROT]);
-  const s2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [0.92, 0.92, 1, 1, 0.92, 0.92]);
+  const o2 = useTransform(cardProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [0, 0, 1, 1, 0, 0]);
+  const x2 = useTransform(cardProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], ["120vw", "120vw", "0vw", "0vw", "-120vw", "-120vw"]);
+  const r2 = useTransform(cardProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [ENTER_ROT, ENTER_ROT, 0, 0, EXIT_ROT, EXIT_ROT]);
+  const s2 = useTransform(cardProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [0.92, 0.92, 1, 1, 0.92, 0.92]);
 
   // Card 3 — enters from right 0.58→0.84, holds until pin ends.
-  const o3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], [0, 0, 1, 1]);
-  const x3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], ["120vw", "120vw", "0vw", "0vw"]);
-  const r3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], [ENTER_ROT, ENTER_ROT, 0, 0]);
-  const s3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], [0.92, 0.92, 1, 1]);
+  const o3 = useTransform(cardProgress, [0, 0.62, 0.86, 1], [0, 0, 1, 1]);
+  const x3 = useTransform(cardProgress, [0, 0.62, 0.86, 1], ["120vw", "120vw", "0vw", "0vw"]);
+  const r3 = useTransform(cardProgress, [0, 0.62, 0.86, 1], [ENTER_ROT, ENTER_ROT, 0, 0]);
+  const s3 = useTransform(cardProgress, [0, 0.62, 0.86, 1], [0.92, 0.92, 1, 1]);
 
   const motionStyles = [
     { opacity: o1, x: x1, y: y1, rotate: r1, scale: s1 },
@@ -912,9 +982,9 @@ function Universes() {
     { opacity: o3, x: x3, rotate: r3, scale: s3 },
   ];
 
-  const textY1 = useTransform(scrollYProgress, [0, 0.12, 0.24, 0.52, 1], [24, 0, 0, -18, -18]);
-  const textY2 = useTransform(scrollYProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [18, 18, 0, 0, -18, -18]);
-  const textY3 = useTransform(scrollYProgress, [0, 0.62, 0.86, 1], [18, 18, 0, 0]);
+  const textY1 = useTransform(cardProgress, [0, 0.12, 0.24, 0.52, 1], [24, 0, 0, -18, -18]);
+  const textY2 = useTransform(cardProgress, [0, 0.24, 0.52, 0.62, 0.86, 1], [18, 18, 0, 0, -18, -18]);
+  const textY3 = useTransform(cardProgress, [0, 0.62, 0.86, 1], [18, 18, 0, 0]);
 
   const textMotionStyles = [
     { opacity: o1, y: textY1 },
@@ -1253,12 +1323,139 @@ function SpecVilla({ label, v }) {
   );
 }
 
+const STEP_SCROLL_LOCK_MS = 760;
+const STEP_SCROLL_EXIT_REARM_MS = 320;
+const SEQUENTIAL_REVEAL_STEPS = [0.12, 0.42, 0.70];
+const SEQUENTIAL_LAST_STEP_HOLD_GAP = 420;
+const HOW_IT_WORKS_STEPS = [0.12, 0.42, 0.66, 0.82];
+
+function usePinnedStepProgress(pinRef, steps, lastStepHoldGap = null) {
+  const activeStepRef = useRef(0);
+  const wheelLockRef = useRef(false);
+  const exitReadyRef = useRef(true);
+  const exitReadyTimerRef = useRef(null);
+  const unlockTimerRef = useRef(null);
+  const progressAnimationRef = useRef(null);
+  const progress = useMotionValue(steps[0] ?? 0);
+
+  useEffect(() => {
+    const pin = pinRef.current;
+    if (!pin) return undefined;
+    const shouldGateLastExit = lastStepHoldGap != null;
+    const lastIndex = steps.length - 1;
+
+    const scheduleExitReady = () => {
+      if (!shouldGateLastExit) return;
+      if (exitReadyTimerRef.current) window.clearTimeout(exitReadyTimerRef.current);
+      exitReadyTimerRef.current = window.setTimeout(() => {
+        exitReadyRef.current = true;
+        exitReadyTimerRef.current = null;
+      }, STEP_SCROLL_EXIT_REARM_MS);
+    };
+
+    const releaseLock = () => {
+      wheelLockRef.current = false;
+      if (unlockTimerRef.current) {
+        window.clearTimeout(unlockTimerRef.current);
+        unlockTimerRef.current = null;
+      }
+      if (shouldGateLastExit && activeStepRef.current === lastIndex && !exitReadyRef.current) {
+        scheduleExitReady();
+      }
+    };
+
+    const getStepScrollY = (index) => {
+      const rect = pin.getBoundingClientRect();
+      const start = window.scrollY + rect.top;
+      const end = start + pin.offsetHeight - window.innerHeight;
+      const travel = Math.max(1, end - start);
+      const lastIndex = Math.max(steps.length - 1, 1);
+      const nearEndGap = lastStepHoldGap == null
+        ? Math.min(48, window.innerHeight * 0.08)
+        : Math.min(lastStepHoldGap, window.innerHeight * 0.45);
+
+      if (index <= 0) return Math.max(0, start + 1);
+      if (index >= steps.length - 1) return Math.max(0, end - nearEndGap);
+      return Math.max(0, start + travel * (index / lastIndex));
+    };
+
+    const goToStep = (nextIndex) => {
+      const previousIndex = activeStepRef.current;
+      const revealLastStepOnly = shouldGateLastExit && previousIndex < lastIndex && nextIndex === lastIndex;
+      wheelLockRef.current = true;
+      activeStepRef.current = nextIndex;
+      if (shouldGateLastExit) {
+        if (exitReadyTimerRef.current) {
+          window.clearTimeout(exitReadyTimerRef.current);
+          exitReadyTimerRef.current = null;
+        }
+        exitReadyRef.current = nextIndex !== lastIndex;
+      }
+      if (!revealLastStepOnly) {
+        window.scrollTo(0, getStepScrollY(nextIndex));
+      }
+
+      if (progressAnimationRef.current) progressAnimationRef.current.stop();
+      progressAnimationRef.current = animate(progress, steps[nextIndex], {
+        duration: 0.62,
+        ease: [0.22, 1, 0.36, 1],
+        onComplete: releaseLock,
+      });
+
+      if (unlockTimerRef.current) window.clearTimeout(unlockTimerRef.current);
+      unlockTimerRef.current = window.setTimeout(releaseLock, STEP_SCROLL_LOCK_MS);
+    };
+
+    const onWheel = (event) => {
+      if (Math.abs(event.deltaY) < 1) return;
+
+      const rect = pin.getBoundingClientRect();
+      const isPinned = rect.top <= 1 && rect.bottom >= window.innerHeight - 1;
+      if (!isPinned) return;
+
+      if (wheelLockRef.current) {
+        if (event.cancelable) event.preventDefault();
+        return;
+      }
+
+      const direction = event.deltaY > 0 ? 1 : -1;
+      const currentIndex = activeStepRef.current;
+      const nextIndex = Math.max(0, Math.min(lastIndex, currentIndex + direction));
+
+      if (shouldGateLastExit && direction > 0 && currentIndex === lastIndex) {
+        if (!exitReadyRef.current) {
+          if (event.cancelable) event.preventDefault();
+          scheduleExitReady();
+        }
+        return;
+      }
+
+      if (nextIndex === currentIndex) return;
+
+      if (event.cancelable) event.preventDefault();
+      goToStep(nextIndex);
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      if (unlockTimerRef.current) window.clearTimeout(unlockTimerRef.current);
+      if (exitReadyTimerRef.current) window.clearTimeout(exitReadyTimerRef.current);
+      if (progressAnimationRef.current) progressAnimationRef.current.stop();
+    };
+  }, [pinRef, progress, steps, lastStepHoldGap]);
+
+  return progress;
+}
+
 function SequentialRevealGrid({ children }) {
   const pinRef = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: pinRef,
-    offset: ["start 85%", "end end"],
-  });
+  const scrollYProgress = usePinnedStepProgress(
+    pinRef,
+    SEQUENTIAL_REVEAL_STEPS,
+    SEQUENTIAL_LAST_STEP_HOLD_GAP
+  );
 
   const o1 = useTransform(scrollYProgress, [0, 0.12, 1], [0, 1, 1]);
   const y1 = useTransform(scrollYProgress, [0, 0.12, 1], [40, 0, 0]);
@@ -1612,10 +1809,7 @@ const HOW_STEPS = [
 
 function HowItWorks() {
   const pinRef = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: pinRef,
-    offset: ["start 85%", "end end"],
-  });
+  const scrollYProgress = usePinnedStepProgress(pinRef, HOW_IT_WORKS_STEPS);
 
   // Each card has only an entrance phase, then an explicit hold at the final
   // state until the pin ends. Card 1 mirrors the Najma reveal (vertical drift,
