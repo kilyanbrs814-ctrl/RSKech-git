@@ -20,8 +20,8 @@ const GALLERY_IMAGES = [
   "/images/gallery/ff710d8851098409aefc1818bc9bca73.jpg",
 ];
 
-const GALLERY_SCROLL_VH_PER_IMAGE = 120;
-const GALLERY_SCROLL_TRAVEL = 50;
+const GALLERY_SCROLL_VH_PER_IMAGE = 48;
+const GALLERY_SCROLL_TRAVEL = 46;
 
 function Gallery() {
   const galleryScrollRef = useRef(null);
@@ -36,6 +36,17 @@ function Gallery() {
 
   return (
     <section id="gallery" className="section section--gallery">
+      <div className="sec-header sec-header--standalone">
+        <div className="sec-header__meta">
+          <h2 className="sec-header__title">
+            Découvrez<br />
+            <span style={{ color: "var(--gold)" }}>le Maroc.</span>
+          </h2>
+        </div>
+        <p className="sec-header__intro">
+          De l'Atlas à la Palmeraie, des médinas aux dunes : un défilé d'images pour composer l'itinéraire de votre séjour.
+        </p>
+      </div>
       <div
         className="rs-gallery-scroll"
         ref={galleryScrollRef}
@@ -467,9 +478,19 @@ function Hero() {
   const [introFading, setIntroFading] = useState(false);
   const [introUsingMatched, setIntroUsingMatched] = useState(false);
   const [userTriggered, setUserTriggered] = useState(false);
+  const [introStopped, setIntroStopped] = useState(false);
   const [stage, setStage] = useState(0);
 
-  const CROSSFADE_SECONDS = 0.65;
+  // Short crossfade: while it runs, two fullscreen videos decode at once, so
+  // keep the overlap brief to avoid stutter.
+  const CROSSFADE_SECONDS = 0.35;
+
+  // Play a video at most once, guarding null + rejected promises.
+  const safePlay = (video) => {
+    if (!video || !video.paused) return;
+    const p = video.play();
+    if (p && typeof p.then === "function") p.catch(() => {});
+  };
 
   // Lock body scroll until intro done. Cleanup always restores overflow,
   // even if the user navigates away mid-sequence.
@@ -507,10 +528,7 @@ function Hero() {
   useEffect(() => {
     const video = introVideoRef.current;
     if (!video) return;
-    const start = () => {
-      const p = video.play();
-      if (p && typeof p.then === "function") p.catch(() => {});
-    };
+    const start = () => safePlay(video);
     if (video.readyState >= 2) start();
     else video.addEventListener("canplay", start, { once: true });
     return () => video.removeEventListener("canplay", start);
@@ -601,25 +619,73 @@ function Hero() {
     };
   }, [introDone, userTriggered]);
 
-  // First user gesture: start the crossfade and play the main hero video.
+  // First user gesture: play the main hero video, wait until its first frame is
+  // actually painted, THEN start the crossfade — so the intro never fades onto a
+  // black/undecoded main frame. Once the fade is done, fully release the intro.
   useEffect(() => {
     if (!userTriggered) return;
-    setIntroFading(true);
-    const video = videoRef.current;
-    if (!video) return;
-    const MAIN_PLAYBACK_RATE = 1.3;
-    const start = () => {
-      try { video.playbackRate = MAIN_PLAYBACK_RATE; } catch (_) {}
-      const p = video.play();
-      if (p && typeof p.then === "function") p.catch(() => {});
-    };
-    if (video.readyState >= 2) start();
-    else video.addEventListener("canplay", start, { once: true });
-    return () => video.removeEventListener("canplay", start);
-  }, [userTriggered]);
+    const main = videoRef.current;
+    if (!main) return;
 
-  // Both videos play at native rate. Forcing playbackRate forces extra decode
-  // work and causes the very stutter we're trying to avoid.
+    let cancelled = false;
+    let started = false;
+    let fadeTimer = null;
+    let stopTimer = null;
+
+    const beginFade = () => {
+      if (cancelled) return;
+      setIntroFading(true);
+      // After the crossfade, stop the intro entirely so the browser no longer
+      // decodes/manages a second fullscreen video.
+      stopTimer = window.setTimeout(() => {
+        const intro = introVideoRef.current;
+        if (intro) {
+          try {
+            intro.pause();
+            intro.removeAttribute("src");
+            while (intro.firstChild) intro.removeChild(intro.firstChild);
+            intro.load();
+          } catch (_) {}
+        }
+        setIntroStopped(true);
+      }, Math.round(CROSSFADE_SECONDS * 1000) + 60);
+    };
+
+    const start = () => {
+      if (cancelled || started) return;
+      started = true;
+      // Option A: a file already accelerated to x1.3 plays at native rate (1).
+      // Fallback to real-time x1.3 only if the accelerated file isn't served.
+      const usingAccelerated = (main.currentSrc || "").includes("hero-scroll-1-3x");
+      try { main.playbackRate = usingAccelerated ? 1 : 1.3; } catch (_) {}
+      safePlay(main);
+
+      // Start the fade only once the first main frame is painted.
+      if (typeof main.requestVideoFrameCallback === "function") {
+        main.requestVideoFrameCallback(() => beginFade());
+        // Safety net in case the callback never fires.
+        fadeTimer = window.setTimeout(beginFade, 400);
+      } else {
+        // No rVFC: HAVE_FUTURE_DATA (3) means a frame is decodable; small delay
+        // lets it paint.
+        fadeTimer = window.setTimeout(beginFade, 80);
+      }
+    };
+
+    // Don't fade until the main video can actually play through smoothly.
+    if (main.readyState >= 3) start();
+    else {
+      const onReady = () => { main.removeEventListener("canplaythrough", onReady); start(); };
+      main.addEventListener("canplay", onReady, { once: true });
+      main.addEventListener("canplaythrough", onReady, { once: true });
+    }
+
+    return () => {
+      cancelled = true;
+      if (fadeTimer) clearTimeout(fadeTimer);
+      if (stopTimer) clearTimeout(stopTimer);
+    };
+  }, [userTriggered]);
 
   // Chained stagger after video ends
   const handleEnded = () => {
@@ -659,6 +725,8 @@ function Hero() {
           aria-hidden="true"
           tabIndex={-1}
           disablePictureInPicture
+          disableRemotePlayback
+          controlsList="nodownload noplaybackrate noremoteplayback"
           onEnded={handleEnded}
           style={{
             position: "absolute", inset: 0,
@@ -668,6 +736,9 @@ function Hero() {
             pointerEvents: "none",
           }}
         >
+          {/* Pre-accelerated x1.3 file plays at native rate (1) = smoother.
+              Falls back to the original played in real-time x1.3. */}
+          <source src="/videos/hero-scroll-1-3x.mp4" type="video/mp4" />
           <source src="/videos/hero-scroll.mp4" type="video/mp4" />
         </video>
         <video
@@ -680,6 +751,8 @@ function Hero() {
           aria-hidden="true"
           tabIndex={-1}
           disablePictureInPicture
+          disableRemotePlayback
+          controlsList="nodownload noplaybackrate noremoteplayback"
           onEnded={handleIntroEnded}
           style={{
             position: "absolute", inset: 0,
@@ -688,6 +761,7 @@ function Hero() {
             objectPosition: "center center",
             pointerEvents: "none",
             zIndex: 1,
+            display: introStopped ? "none" : "block",
             opacity: introFading ? 0 : 1,
             transition: `opacity ${Math.round(CROSSFADE_SECONDS * 1000)}ms ease-out`,
             filter: introUsingMatched ? "none" : "saturate(1.15) contrast(1.06) brightness(1.03)",

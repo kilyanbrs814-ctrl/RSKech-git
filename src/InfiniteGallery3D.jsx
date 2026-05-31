@@ -125,6 +125,15 @@ function ImagePlane({ texture, position, scale, material, meshRef }) {
   );
 }
 
+// --- Gallery speed / inertia tuning -------------------------------------
+// Scroll feeds a velocity; velocity decays so images keep gliding a moment
+// after the wheel stops. Tune these for faster / slower / more or less glide.
+const WHEEL_IMPULSE_MULTIPLIER = 62;   // bigger = a wheel flick throws further
+const INERTIA_DECAY = 0.90;            // closer to 1 = glides longer
+const MAX_VELOCITY = 1.05;             // safety cap for a huge wheel flick
+const MIN_VELOCITY = 0.0005;           // below this, snap velocity to 0 (stop)
+const SCROLL_DIRECT_GAIN = 1.1;        // direct scroll-locked travel multiplier
+
 function GalleryScene({
   images,
   visibleCount = 8,
@@ -144,7 +153,9 @@ function GalleryScene({
   // fade, blur, image order and shader math stay in place.
   // velocity → damping → plane.z math is left UNCHANGED — only the source
   // Autoplay/timers no longer feed the gallery.
-  const lastScrollVal = useRef(scrollMV ? scrollMV.get() : 0);
+  const lastProgressRef = useRef(scrollMV ? scrollMV.get() : 0);
+  const velocityRef = useRef(0);        // current inertial speed
+  const virtualTravelRef = useRef(0);   // accumulated inertial overshoot
   const meshRefs = useRef([]);
 
   const normalizedImages = useMemo(
@@ -210,23 +221,39 @@ function GalleryScene({
     });
   }, [depthRange, spatialPositions, totalImages, visibleCount]);
 
-  useFrame((state, delta) => {
+  useFrame((state) => {
     const rawProgress = scrollMV ? scrollMV.get() : 0;
     const progress = Math.max(0, Math.min(1, rawProgress));
-    const progressDelta = progress - lastScrollVal.current;
-    lastScrollVal.current = progress;
 
-    const safeDelta = Math.max(delta, 1 / 120);
-    const scrollForce = Math.max(
-      -2,
-      Math.min(2, (progressDelta * scrollTravel * 0.08) / safeDelta)
-    );
+    // Real scroll feeds an inertial velocity instead of driving travel directly.
+    const progressDelta = progress - lastProgressRef.current;
+    lastProgressRef.current = progress;
+
+    velocityRef.current += progressDelta * WHEEL_IMPULSE_MULTIPLIER;
+    velocityRef.current *= INERTIA_DECAY;
+    // Clamp so a huge wheel flick can't explode the motion.
+    velocityRef.current = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, velocityRef.current));
+    // Below threshold, stop completely → no permanent autoplay drift.
+    if (Math.abs(velocityRef.current) < MIN_VELOCITY) velocityRef.current = 0;
+
+    virtualTravelRef.current += velocityRef.current;
+    // Bound the inertial overshoot to one travel span so it never desyncs
+    // beyond what a reverse scroll can naturally catch back up.
+    virtualTravelRef.current = Math.max(-scrollTravel, Math.min(scrollTravel, virtualTravelRef.current));
+
+    // Shader force now reflects the lively inertial velocity, not raw delta.
+    const scrollForce = Math.max(-2.5, Math.min(2.5, velocityRef.current * 1.2));
 
     const time = state.clock.getElapsedTime();
     const imageAdvance = totalImages > 0 ? visibleCount % totalImages || totalImages : 0;
     const totalRange = depthRange;
     const halfRange = totalRange / 2;
-    const travel = progress * scrollTravel;
+    // Scroll-locked travel + inertial glide.
+    const directTravel = progress * scrollTravel * SCROLL_DIRECT_GAIN;
+    const inertialTravel = virtualTravelRef.current;
+    // Clamp the total to a single depth cycle so the gallery is seen exactly
+    // once — inertia overshoot can't kick off a second/third pass.
+    const travel = Math.max(0, Math.min(totalRange, directTravel + inertialTravel));
 
     planesData.current.forEach((plane, i) => {
       const newZ = plane.baseZ + travel;
